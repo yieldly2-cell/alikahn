@@ -297,6 +297,56 @@ export async function getReferrals(userId: string): Promise<User[]> {
   return db.select().from(users).where(eq(users.referredBy, userId));
 }
 
+export async function getReferralsWithDepositInfo(userId: string): Promise<(User & { totalDeposited: number; isQualified: boolean })[]> {
+  const referredUsers = await db.select().from(users).where(eq(users.referredBy, userId));
+  const result = [];
+  for (const u of referredUsers) {
+    const userDeposits = await db.select().from(deposits).where(
+      and(eq(deposits.userId, u.id), eq(deposits.status, "approved"))
+    );
+    const totalDeposited = userDeposits.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+    result.push({ ...u, totalDeposited, isQualified: totalDeposited >= 50 });
+  }
+  return result;
+}
+
+export async function incrementQualifiedReferrals(userId: string): Promise<User | undefined> {
+  const [updated] = await db.update(users).set({
+    qualifiedReferrals: sql`${users.qualifiedReferrals} + 1`,
+    totalYieldPercent: sql`LEAST(30, ${users.totalYieldPercent} + 1)`,
+  }).where(eq(users.id, userId)).returning();
+  return updated;
+}
+
+export async function markWelcomeBonusPaid(userId: string): Promise<void> {
+  await db.update(users).set({ welcomeBonusPaid: true }).where(eq(users.id, userId));
+}
+
+export async function markReferralBonusPaid(userId: string): Promise<void> {
+  await db.update(users).set({ referralBonusPaid: true }).where(eq(users.id, userId));
+}
+
+export async function setUserYieldPercent(userId: string, yieldPercent: number): Promise<void> {
+  await db.update(users).set({ totalYieldPercent: Math.min(30, yieldPercent) }).where(eq(users.id, userId));
+}
+
+export async function getTotalApprovedDeposits(userId: string): Promise<number> {
+  const userDeposits = await db.select().from(deposits).where(
+    and(eq(deposits.userId, userId), eq(deposits.status, "approved"))
+  );
+  return userDeposits.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+}
+
+export async function hasQualifiedReferralFor(referrerId: string, referredUserId: string): Promise<boolean> {
+  const commissions = await db.select().from(referralCommissions).where(
+    and(
+      eq(referralCommissions.referrerId, referrerId),
+      eq(referralCommissions.fromUserId, referredUserId),
+    )
+  );
+  return commissions.length > 0;
+}
+
 // Audit functions
 export async function createAuditLog(data: {
   action: string;
