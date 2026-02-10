@@ -126,16 +126,28 @@ async function loadDeposits(){
   try{
     const deps=await api('/api/admin/deposits');
     c.innerHTML=`<div class="card" style="overflow-x:auto"><table>
-      <thead><tr><th>User</th><th>Amount</th><th>TXID</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+      <thead><tr><th>User</th><th>Amount</th><th>TXID</th><th>Screenshot</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
       <tbody>${deps.map(d=>`<tr>
         <td><div style="font-weight:500;color:#fff">${d.userName||'N/A'}</div><div style="font-size:11px;color:#6B7280">${d.userEmail||''}</div></td>
         <td style="font-weight:600;color:#10B981">$${parseFloat(d.amount).toFixed(2)}</td>
-        <td><code style="font-size:11px;background:#2A2A2A;padding:2px 6px;border-radius:4px">${d.txid.substring(0,20)}...</code>${d.screenshotUrl?`<br><a href="${d.screenshotUrl}" target="_blank" style="color:#3B82F6;font-size:11px">View Screenshot</a>`:''}</td>
+        <td><code style="font-size:11px;background:#2A2A2A;padding:2px 6px;border-radius:4px;word-break:break-all">${d.txid}</code></td>
+        <td>${d.screenshotUrl?`<div style="cursor:pointer" onclick="showScreenshot('${d.screenshotUrl}')"><img src="${d.screenshotUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #333" /><div style="font-size:10px;color:#3B82F6;margin-top:2px">Click to enlarge</div></div>`:'<span style="color:#6B7280;font-size:12px">None</span>'}</td>
         <td><span class="badge badge-${d.status}">${d.status}</span></td>
         <td style="font-size:12px">${new Date(d.createdAt).toLocaleDateString()}</td>
         <td>${d.status==='pending'?`<div style="display:flex;gap:6px"><button class="btn btn-emerald" onclick="approveDeposit('${d.id}')">Approve</button><button class="btn btn-danger" onclick="rejectDeposit('${d.id}')">Reject</button></div>`:'—'}</td>
       </tr>`).join('')}</tbody></table></div>`;
   }catch(e){c.innerHTML='<div style="color:#EF4444">Failed to load deposits</div>'}
+}
+
+function showScreenshot(url){
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay';
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove()};
+  overlay.innerHTML=`<div style="max-width:90vw;max-height:90vh;position:relative">
+    <button class="btn btn-outline" style="position:absolute;top:-40px;right:0" onclick="this.closest('.modal-overlay').remove()">Close</button>
+    <img src="${url}" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;border:1px solid #333" />
+  </div>`;
+  document.body.appendChild(overlay);
 }
 
 async function approveDeposit(id){if(!confirm('Approve this deposit?'))return;try{await api('/api/admin/deposits/'+id+'/approve',{method:'POST'});loadDeposits()}catch(e){alert('Failed')}}
@@ -166,12 +178,14 @@ async function loadUsers(){
   try{
     const usrs=await api('/api/admin/users');
     c.innerHTML=`<div class="card" style="overflow-x:auto"><table>
-      <thead><tr><th>Name</th><th>Email</th><th>Balance</th><th>Referrals</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Name</th><th>Email</th><th>Balance</th><th>Referrals</th><th>Device ID</th><th>Verified</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
       <tbody>${usrs.map(u=>`<tr>
         <td style="font-weight:500;color:#fff">${u.fullName}</td>
         <td>${u.email}</td>
         <td style="font-weight:600;color:#10B981">$${parseFloat(u.balance).toFixed(2)}</td>
         <td>${u.referralCount} <span style="color:#6B7280;font-size:11px">(${u.referralCode})</span></td>
+        <td><code style="font-size:10px;background:#2A2A2A;padding:2px 6px;border-radius:4px">${u.deviceId?u.deviceId.substring(0,16)+'...':'N/A'}</code></td>
+        <td><span class="badge ${u.emailVerified?'badge-approved':'badge-pending'}">${u.emailVerified?'Yes':'No'}</span></td>
         <td><span class="badge ${u.isBlocked?'badge-rejected':'badge-approved'}">${u.isBlocked?'Blocked':'Active'}</span></td>
         <td style="font-size:12px">${new Date(u.createdAt).toLocaleDateString()}</td>
         <td><div style="display:flex;gap:6px;flex-wrap:wrap">
