@@ -3,260 +3,792 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Yieldly Admin</title>
+<title>Yieldly Admin Dashboard</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script>tailwind.config={theme:{extend:{colors:{bg:'#121212',surface:'#1E1E1E',surfaceLight:'#2A2A2A',emerald:'#10B981',gold:'#F59E0B',danger:'#EF4444'}}}}</script>
+<script>tailwind.config={theme:{extend:{colors:{bg:'#121212',surface:'#1E1E1E',surfaceLight:'#2A2A2A',primary:'#00C853',gold:'#FFD700',danger:'#EF4444',info:'#3B82F6'}}}}</script>
 <style>
-body{background:#121212;color:#fff;font-family:system-ui,-apple-system,sans-serif}
-::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:#1E1E1E}::-webkit-scrollbar-thumb{background:#444;border-radius:3px}
-.tab-active{border-bottom:2px solid #10B981;color:#10B981}
-.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:500}
-.badge-pending{background:#F59E0B22;color:#F59E0B}.badge-approved{background:#10B98122;color:#10B981}
-.badge-rejected{background:#EF444422;color:#EF4444}.badge-processed{background:#3B82F622;color:#3B82F6}
-.btn{padding:6px 14px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s}
-.btn-emerald{background:#10B981;color:#fff}.btn-emerald:hover{background:#059669}
-.btn-danger{background:#EF4444;color:#fff}.btn-danger:hover{background:#DC2626}
-.btn-gold{background:#F59E0B;color:#000}.btn-gold:hover{background:#D97706}
-.btn-outline{background:transparent;border:1px solid #444;color:#ccc}.btn-outline:hover{border-color:#10B981;color:#10B981}
-.card{background:#1E1E1E;border-radius:12px;padding:20px;border:1px solid #2A2A2A}
-.input{background:#2A2A2A;border:1px solid #333;border-radius:6px;padding:8px 12px;color:#fff;font-size:14px;width:100%}
-.input:focus{outline:none;border-color:#10B981}
-.stat-card{background:linear-gradient(135deg,#1E1E1E 0%,#252525 100%);border:1px solid #2A2A2A;border-radius:12px;padding:20px}
-.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:50}
-.modal-content{background:#1E1E1E;border-radius:12px;padding:24px;max-width:500px;width:90%;border:1px solid #2A2A2A}
-table{width:100%;border-collapse:separate;border-spacing:0}th{text-align:left;padding:10px 12px;font-size:12px;font-weight:600;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #2A2A2A}
-td{padding:10px 12px;font-size:13px;border-bottom:1px solid #1a1a1a;color:#D1D5DB}
-tr:hover td{background:#252525}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#121212;color:#E5E7EB;font-family:'Inter',system-ui,-apple-system,sans-serif;min-height:100vh}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:#1E1E1E}::-webkit-scrollbar-thumb{background:#444;border-radius:3px}::-webkit-scrollbar-thumb:hover{background:#555}
+.fade-in{animation:fadeIn .3s ease}@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.pulse{animation:pulse 2s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.badge{display:inline-flex;align-items:center;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600;letter-spacing:.03em}
+.badge-pending{background:rgba(255,215,0,.15);color:#FFD700}
+.badge-approved{background:rgba(0,200,83,.15);color:#00C853}
+.badge-rejected{background:rgba(239,68,68,.15);color:#EF4444}
+.badge-processed{background:rgba(59,130,246,.15);color:#3B82F6}
+.badge-active{background:rgba(255,215,0,.15);color:#FFD700}
+.badge-completed{background:rgba(0,200,83,.15);color:#00C853}
+.btn{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.btn:active{transform:translateY(0)}
+.btn-primary{background:#00C853;color:#000}.btn-primary:hover{background:#00E676}
+.btn-danger{background:#EF4444;color:#fff}.btn-danger:hover{background:#F87171}
+.btn-gold{background:#FFD700;color:#000}.btn-gold:hover{background:#FDE047}
+.btn-outline{background:transparent;border:1px solid #444;color:#9CA3AF}.btn-outline:hover{border-color:#00C853;color:#00C853}
+.btn-info{background:#3B82F6;color:#fff}.btn-info:hover{background:#60A5FA}
+.btn-sm{padding:4px 10px;font-size:11px}
+.card{background:#1E1E1E;border-radius:12px;padding:20px;border:1px solid #2A2A2A;transition:border-color .2s}
+.card:hover{border-color:#333}
+.input{background:#2A2A2A;border:1px solid #333;border-radius:8px;padding:9px 14px;color:#fff;font-size:13px;width:100%;transition:border-color .2s}
+.input:focus{outline:none;border-color:#00C853;box-shadow:0 0 0 3px rgba(0,200,83,.1)}
+.input::placeholder{color:#6B7280}
+select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.stat-card{background:linear-gradient(135deg,#1E1E1E 0%,#252525 100%);border:1px solid #2A2A2A;border-radius:14px;padding:22px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;right:0;width:80px;height:80px;border-radius:50%;opacity:.05;transform:translate(20px,-20px)}
+.stat-card.green::before{background:#00C853}.stat-card.gold::before{background:#FFD700}.stat-card.blue::before{background:#3B82F6}.stat-card.red::before{background:#EF4444}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(4px)}
+.modal-content{background:#1E1E1E;border-radius:16px;padding:28px;max-width:700px;width:95%;border:1px solid #2A2A2A;max-height:90vh;overflow-y:auto;position:relative}
+.modal-lg{max-width:900px}
+table{width:100%;border-collapse:separate;border-spacing:0}
+th{text-align:left;padding:10px 14px;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #2A2A2A;background:#181818;position:sticky;top:0;z-index:1}
+td{padding:10px 14px;font-size:13px;border-bottom:1px solid #1a1a1a;color:#D1D5DB;vertical-align:middle}
+tr:hover td{background:#1a1a1a}
+.tab-btn{padding:10px 22px;border:none;background:none;color:#6B7280;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
+.tab-btn:hover{color:#9CA3AF}
+.tab-btn.active{color:#00C853;border-bottom-color:#00C853}
+.toast{position:fixed;bottom:24px;right:24px;background:#1E1E1E;border:1px solid #2A2A2A;border-radius:12px;padding:14px 20px;z-index:200;display:flex;align-items:center;gap:10px;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,.5);animation:slideUp .3s ease}
+.toast-success{border-left:3px solid #00C853}.toast-error{border-left:3px solid #EF4444}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.countdown{font-variant-numeric:tabular-nums}
+.search-wrap{position:relative}.search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#6B7280}
+.search-wrap input{padding-left:36px}
+.empty-state{text-align:center;padding:60px 20px;color:#6B7280}
+.empty-state svg{margin:0 auto 16px;opacity:.4}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="toast-container"></div>
 <script>
-const API_BASE='';
+const API='';
 let token=localStorage.getItem('admin_token');
+let sessionTimer=null;
 let currentTab='dashboard';
+let allUsersCache=[];
+let allDepositsCache=[];
+let allWithdrawalsCache=[];
 const app=document.getElementById('app');
 
 function api(path,opts={}){
-  const headers={'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})};
-  return fetch(API_BASE+path,{...opts,headers}).then(r=>{if(!r.ok)throw r;return r.json()});
+  const headers={'Content-Type':'application/json'};
+  if(token)headers['Authorization']='Bearer '+token;
+  return fetch(API+path,{...opts,headers}).then(async r=>{
+    if(r.status===401){logout();throw new Error('Session expired');}
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.message||'Request failed');}
+    const ct=r.headers.get('content-type')||'';
+    if(ct.includes('text/csv'))return r.text();
+    return r.json();
+  });
 }
 
+function toast(msg,type='success'){
+  const el=document.createElement('div');
+  el.className='toast toast-'+type;
+  el.innerHTML=`<span style="font-size:16px">${type==='success'?'&#10003;':'&#10007;'}</span><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transform='translateY(20px)';setTimeout(()=>el.remove(),300)},3000);
+}
+
+function startSessionTimer(){
+  clearTimeout(sessionTimer);
+  sessionTimer=setTimeout(()=>{toast('Session expired','error');logout()},30*60*1000);
+}
+
+function fmt$(v){return '$'+parseFloat(v||0).toFixed(2)}
+function fmtDate(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+function fmtDateTime(d){if(!d)return'—';return new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
+function truncate(s,n=20){if(!s)return'—';return s.length>n?s.substring(0,n)+'...':s}
+function escHtml(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
 function renderLogin(){
+  clearTimeout(sessionTimer);
   app.innerHTML=`
-  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center">
-    <div class="card" style="max-width:380px;width:100%">
-      <div style="text-align:center;margin-bottom:24px">
-        <h1 style="font-size:28px;font-weight:700;color:#10B981">Yieldly</h1>
-        <p style="color:#9CA3AF;font-size:14px;margin-top:4px">Admin Dashboard</p>
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at top,#1a1a2e 0%,#121212 70%)">
+    <div class="card fade-in" style="max-width:400px;width:100%;border:1px solid #333">
+      <div style="text-align:center;margin-bottom:28px">
+        <div style="width:56px;height:56px;background:linear-gradient(135deg,#00C853,#00E676);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:24px;font-weight:800;color:#000">Y</div>
+        <h1 style="font-size:26px;font-weight:800;color:#fff">Yieldly Admin</h1>
+        <p style="color:#6B7280;font-size:13px;margin-top:6px">Secure Dashboard Access</p>
       </div>
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <input class="input" id="username" placeholder="Username" autocomplete="off">
-        <input class="input" id="password" type="password" placeholder="Password">
-        <div id="login-error" style="color:#EF4444;font-size:13px;display:none"></div>
-        <button class="btn btn-emerald" style="width:100%;padding:10px" onclick="doLogin()">Sign In</button>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <label style="font-size:12px;color:#9CA3AF;margin-bottom:4px;display:block;font-weight:600">Username</label>
+          <input class="input" id="login-user" placeholder="Enter username" autocomplete="off">
+        </div>
+        <div>
+          <label style="font-size:12px;color:#9CA3AF;margin-bottom:4px;display:block;font-weight:600">Password</label>
+          <input class="input" id="login-pass" type="password" placeholder="Enter password">
+        </div>
+        <div id="login-error" style="color:#EF4444;font-size:12px;display:none;background:rgba(239,68,68,.1);padding:8px 12px;border-radius:6px"></div>
+        <button class="btn btn-primary" style="width:100%;padding:12px;font-size:14px;justify-content:center;margin-top:4px" onclick="doLogin()">Sign In</button>
       </div>
+      <p style="text-align:center;color:#4B5563;font-size:11px;margin-top:20px">Protected by brute force detection</p>
     </div>
   </div>`;
+  document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+  document.getElementById('login-user').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('login-pass').focus()});
 }
 
 async function doLogin(){
-  const u=document.getElementById('username').value;
-  const p=document.getElementById('password').value;
+  const u=document.getElementById('login-user').value.trim();
+  const p=document.getElementById('login-pass').value;
   const errEl=document.getElementById('login-error');
+  if(!u||!p){errEl.textContent='Please enter both username and password';errEl.style.display='block';return;}
   try{
     const d=await api('/api/admin/login',{method:'POST',body:JSON.stringify({username:u,password:p})});
     token=d.token;localStorage.setItem('admin_token',token);
-    renderDashboard();
-  }catch(e){errEl.textContent='Invalid credentials';errEl.style.display='block'}
+    startSessionTimer();
+    renderApp();
+  }catch(e){errEl.textContent=e.message||'Invalid credentials';errEl.style.display='block'}
 }
 
-function logout(){token=null;localStorage.removeItem('admin_token');renderLogin()}
+function logout(){token=null;localStorage.removeItem('admin_token');clearTimeout(sessionTimer);renderLogin()}
 
-async function renderDashboard(){
+function renderApp(){
+  startSessionTimer();
   app.innerHTML=`
-  <div style="max-width:1200px;margin:0 auto;padding:20px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
-      <div style="display:flex;align-items:center;gap:12px">
-        <h1 style="font-size:24px;font-weight:700;color:#10B981">Yieldly</h1>
-        <span style="color:#9CA3AF;font-size:14px">Admin</span>
+  <div style="min-height:100vh">
+    <header style="background:#181818;border-bottom:1px solid #2A2A2A;padding:0 24px;position:sticky;top:0;z-index:50">
+      <div style="max-width:1400px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;height:56px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;background:linear-gradient(135deg,#00C853,#00E676);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#000">Y</div>
+          <span style="font-size:18px;font-weight:700;color:#fff">Yieldly</span>
+          <span style="background:#2A2A2A;color:#6B7280;font-size:10px;padding:3px 8px;border-radius:4px;font-weight:600">ADMIN</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="color:#6B7280;font-size:12px" id="session-clock"></span>
+          <button class="btn btn-outline btn-sm" onclick="logout()">Logout</button>
+        </div>
       </div>
-      <button class="btn btn-outline" onclick="logout()">Logout</button>
-    </div>
-    <div style="display:flex;gap:0;border-bottom:1px solid #2A2A2A;margin-bottom:24px;overflow-x:auto">
-      <button class="btn" style="border-radius:0;border-bottom:2px solid transparent;padding:10px 20px" id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</button>
-      <button class="btn" style="border-radius:0;border-bottom:2px solid transparent;padding:10px 20px" id="tab-deposits" onclick="switchTab('deposits')">Deposits</button>
-      <button class="btn" style="border-radius:0;border-bottom:2px solid transparent;padding:10px 20px" id="tab-withdrawals" onclick="switchTab('withdrawals')">Withdrawals</button>
-      <button class="btn" style="border-radius:0;border-bottom:2px solid transparent;padding:10px 20px" id="tab-users" onclick="switchTab('users')">Users</button>
-      <button class="btn" style="border-radius:0;border-bottom:2px solid transparent;padding:10px 20px" id="tab-investments" onclick="switchTab('investments')">Investments</button>
-      <button class="btn" style="border-radius:0;border-bottom:2px solid transparent;padding:10px 20px" id="tab-logs" onclick="switchTab('logs')">Audit Logs</button>
-    </div>
-    <div id="tab-content"></div>
+    </header>
+    <nav style="background:#181818;border-bottom:1px solid #2A2A2A;overflow-x:auto">
+      <div style="max-width:1400px;margin:0 auto;display:flex;padding:0 24px">
+        <button class="tab-btn" id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+        <button class="tab-btn" id="tab-users" onclick="switchTab('users')">Users</button>
+        <button class="tab-btn" id="tab-deposits" onclick="switchTab('deposits')">Deposits</button>
+        <button class="tab-btn" id="tab-withdrawals" onclick="switchTab('withdrawals')">Withdrawals</button>
+        <button class="tab-btn" id="tab-investments" onclick="switchTab('investments')">Investments</button>
+        <button class="tab-btn" id="tab-referrals" onclick="switchTab('referrals')">Referrals</button>
+        <button class="tab-btn" id="tab-logs" onclick="switchTab('logs')">Audit Logs</button>
+      </div>
+    </nav>
+    <main style="max-width:1400px;margin:0 auto;padding:24px" id="tab-content"></main>
   </div>`;
+  updateSessionClock();
+  setInterval(updateSessionClock,60000);
   switchTab(currentTab);
+}
+
+function updateSessionClock(){
+  const el=document.getElementById('session-clock');
+  if(el)el.textContent='Session: 30 min timeout';
 }
 
 function switchTab(tab){
   currentTab=tab;
-  document.querySelectorAll('[id^="tab-"]').forEach(el=>{if(el.id!=='tab-content')el.style.borderBottomColor='transparent';el.style.color='#9CA3AF'});
-  const activeTab=document.getElementById('tab-'+tab);
-  if(activeTab){activeTab.style.borderBottomColor='#10B981';activeTab.style.color='#10B981'}
-  const fns={dashboard:loadDashboard,deposits:loadDeposits,withdrawals:loadWithdrawals,users:loadUsers,investments:loadInvestments,logs:loadLogs};
-  fns[tab]();
+  document.querySelectorAll('.tab-btn').forEach(el=>{el.classList.remove('active')});
+  const active=document.getElementById('tab-'+tab);
+  if(active)active.classList.add('active');
+  const fns={dashboard:loadDashboard,users:loadUsers,deposits:loadDeposits,withdrawals:loadWithdrawals,investments:loadInvestments,referrals:loadReferrals,logs:loadLogs};
+  if(fns[tab])fns[tab]();
 }
 
+// ===================== DASHBOARD =====================
 async function loadDashboard(){
   const c=document.getElementById('tab-content');
+  c.innerHTML='<div class="pulse" style="text-align:center;padding:60px;color:#6B7280">Loading dashboard...</div>';
   try{
     const s=await api('/api/admin/stats');
-    c.innerHTML=`
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px">
-      <div class="stat-card"><div style="color:#9CA3AF;font-size:12px;text-transform:uppercase">Total Users</div><div style="font-size:28px;font-weight:700;margin-top:4px">${s.totalUsers}</div></div>
-      <div class="stat-card"><div style="color:#9CA3AF;font-size:12px;text-transform:uppercase">Total Deposits</div><div style="font-size:28px;font-weight:700;margin-top:4px;color:#10B981">$${s.totalDeposits}</div></div>
-      <div class="stat-card"><div style="color:#9CA3AF;font-size:12px;text-transform:uppercase">Total Withdrawals</div><div style="font-size:28px;font-weight:700;margin-top:4px;color:#F59E0B">$${s.totalWithdrawals}</div></div>
-      <div class="stat-card"><div style="color:#9CA3AF;font-size:12px;text-transform:uppercase">Active Investments</div><div style="font-size:28px;font-weight:700;margin-top:4px">${s.activeInvestments}</div></div>
-      <div class="stat-card" style="border-color:#F59E0B44"><div style="color:#F59E0B;font-size:12px;text-transform:uppercase">Pending Deposits</div><div style="font-size:28px;font-weight:700;margin-top:4px;color:#F59E0B">${s.pendingDeposits}</div></div>
-      <div class="stat-card" style="border-color:#F59E0B44"><div style="color:#F59E0B;font-size:12px;text-transform:uppercase">Pending Withdrawals</div><div style="font-size:28px;font-weight:700;margin-top:4px;color:#F59E0B">${s.pendingWithdrawals}</div></div>
+    c.innerHTML=`<div class="fade-in">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 style="font-size:20px;font-weight:700;color:#fff">Dashboard Overview</h2>
+        <span style="color:#6B7280;font-size:12px">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+        <div class="stat-card green">
+          <div style="color:#6B7280;font-size:11px;text-transform:uppercase;font-weight:600;letter-spacing:.06em">Total Users</div>
+          <div style="font-size:32px;font-weight:800;margin-top:6px;color:#fff">${s.totalUsers}</div>
+        </div>
+        <div class="stat-card gold">
+          <div style="color:#6B7280;font-size:11px;text-transform:uppercase;font-weight:600;letter-spacing:.06em">Pending Deposits</div>
+          <div style="font-size:32px;font-weight:800;margin-top:6px;color:#FFD700">${s.pendingDeposits}</div>
+        </div>
+        <div class="stat-card blue">
+          <div style="color:#6B7280;font-size:11px;text-transform:uppercase;font-weight:600;letter-spacing:.06em">Active Investments</div>
+          <div style="font-size:32px;font-weight:800;margin-top:6px;color:#3B82F6">${s.activeInvestments}</div>
+        </div>
+        <div class="stat-card green">
+          <div style="color:#6B7280;font-size:11px;text-transform:uppercase;font-weight:600;letter-spacing:.06em">Today's Profit</div>
+          <div style="font-size:32px;font-weight:800;margin-top:6px;color:#00C853">${fmt$(s.todayProfit)}</div>
+        </div>
+        <div class="stat-card gold">
+          <div style="color:#6B7280;font-size:11px;text-transform:uppercase;font-weight:600;letter-spacing:.06em">Referral Earnings</div>
+          <div style="font-size:32px;font-weight:800;margin-top:6px;color:#FFD700">${fmt$(s.totalReferralEarnings)}</div>
+        </div>
+        <div class="stat-card green">
+          <div style="color:#6B7280;font-size:11px;text-transform:uppercase;font-weight:600;letter-spacing:.06em">Total Deposits</div>
+          <div style="font-size:32px;font-weight:800;margin-top:6px;color:#00C853">${fmt$(s.totalDeposits)}</div>
+        </div>
+        <div class="stat-card red">
+          <div style="color:#6B7280;font-size:11px;text-transform:uppercase;font-weight:600;letter-spacing:.06em">Total Withdrawals</div>
+          <div style="font-size:32px;font-weight:800;margin-top:6px;color:#EF4444">${fmt$(s.totalWithdrawals)}</div>
+        </div>
+        <div class="stat-card gold">
+          <div style="color:#6B7280;font-size:11px;text-transform:uppercase;font-weight:600;letter-spacing:.06em">Pending Withdrawals</div>
+          <div style="font-size:32px;font-weight:800;margin-top:6px;color:#FFD700">${s.pendingWithdrawals}</div>
+        </div>
+      </div>
     </div>`;
-  }catch(e){c.innerHTML='<div style="color:#EF4444">Failed to load stats</div>'}
+  }catch(e){c.innerHTML=`<div class="card" style="color:#EF4444;text-align:center;padding:40px">Failed to load dashboard: ${escHtml(e.message)}</div>`}
 }
 
+// ===================== USERS =====================
+async function loadUsers(){
+  const c=document.getElementById('tab-content');
+  c.innerHTML='<div class="pulse" style="text-align:center;padding:60px;color:#6B7280">Loading users...</div>';
+  try{
+    allUsersCache=await api('/api/admin/users');
+    renderUsersTable(allUsersCache);
+  }catch(e){c.innerHTML=`<div class="card" style="color:#EF4444;text-align:center;padding:40px">Failed to load users</div>`}
+}
+
+function renderUsersTable(users){
+  const c=document.getElementById('tab-content');
+  c.innerHTML=`<div class="fade-in">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+      <h2 style="font-size:20px;font-weight:700;color:#fff">User Management <span style="color:#6B7280;font-size:14px;font-weight:400">(${users.length})</span></h2>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input class="input" id="user-search" placeholder="Search by name or email..." style="width:240px" oninput="filterUsers()">
+        </div>
+        <select class="input" id="user-status-filter" style="width:140px" onchange="filterUsers()">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="blocked">Blocked</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="exportCSV('users')">Export CSV</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow-x:auto;max-height:70vh;overflow-y:auto">
+      <table>
+        <thead><tr>
+          <th>ID</th><th>Name</th><th>Email</th><th>Device ID</th><th>Referrals</th><th>Qualified</th><th>Balance</th><th>Status</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="users-tbody">${users.map(u=>userRow(u)).join('')}</tbody>
+      </table>
+      ${users.length===0?'<div class="empty-state">No users found</div>':''}
+    </div>
+  </div>`;
+}
+
+function userRow(u){
+  return `<tr>
+    <td><code style="font-size:10px;background:#2A2A2A;padding:2px 6px;border-radius:4px;cursor:pointer" onclick="viewUser('${u.id}')" title="Click for details">${u.id.substring(0,8)}...</code></td>
+    <td style="font-weight:600;color:#fff;cursor:pointer" onclick="viewUser('${u.id}')">${escHtml(u.fullName)}</td>
+    <td>${escHtml(u.email)}</td>
+    <td><code style="font-size:10px;background:#2A2A2A;padding:2px 6px;border-radius:4px">${u.deviceId?truncate(u.deviceId,18):'N/A'}</code></td>
+    <td>${u.referralCount||0} <span style="color:#6B7280;font-size:11px">(${u.referralCode})</span></td>
+    <td><span style="font-weight:700;color:${(u.qualifiedReferrals||0)>0?'#00C853':'#6B7280'}">${u.qualifiedReferrals||0}</span> <span style="color:#6B7280;font-size:11px">${u.totalYieldPercent||10}%</span>${u.referralBonusPaid?'<span class="badge badge-approved" style="margin-left:4px;font-size:9px">$30</span>':''}</td>
+    <td style="font-weight:700;color:#00C853">${fmt$(u.balance)}</td>
+    <td><span class="badge ${u.isBlocked?'badge-rejected':'badge-approved'}">${u.isBlocked?'Blocked':'Active'}</span></td>
+    <td><div style="display:flex;gap:4px;flex-wrap:wrap">
+      <button class="btn btn-info btn-sm" onclick="viewUser('${u.id}')">View</button>
+      ${u.isBlocked?`<button class="btn btn-primary btn-sm" onclick="toggleBlock('${u.id}',false)">Unblock</button>`:`<button class="btn btn-danger btn-sm" onclick="toggleBlock('${u.id}',true)">Block</button>`}
+      <button class="btn btn-gold btn-sm" onclick="showAdjustBalance('${u.id}','${escHtml(u.fullName)}','${u.balance}')">Balance</button>
+    </div></td>
+  </tr>`;
+}
+
+function filterUsers(){
+  const q=(document.getElementById('user-search')?.value||'').toLowerCase();
+  const status=document.getElementById('user-status-filter')?.value||'';
+  let filtered=allUsersCache;
+  if(q)filtered=filtered.filter(u=>(u.fullName||'').toLowerCase().includes(q)||(u.email||'').toLowerCase().includes(q));
+  if(status==='active')filtered=filtered.filter(u=>!u.isBlocked);
+  if(status==='blocked')filtered=filtered.filter(u=>u.isBlocked);
+  document.getElementById('users-tbody').innerHTML=filtered.map(u=>userRow(u)).join('');
+}
+
+async function viewUser(id){
+  try{
+    const d=await api('/api/admin/users/'+id+'/detail');
+    const u=d.user;
+    showModal(`
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:20px">
+        <div>
+          <h3 style="font-size:20px;font-weight:700;color:#fff">${escHtml(u.fullName)}</h3>
+          <p style="color:#6B7280;font-size:13px;margin-top:2px">${escHtml(u.email)}</p>
+        </div>
+        <span class="badge ${u.isBlocked?'badge-rejected':'badge-approved'}" style="font-size:13px;padding:4px 14px">${u.isBlocked?'Blocked':'Active'}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+        <div style="background:#252525;padding:12px;border-radius:8px">
+          <div style="color:#6B7280;font-size:11px;font-weight:600">Balance</div>
+          <div style="font-size:20px;font-weight:700;color:#00C853;margin-top:2px">${fmt$(u.balance)}</div>
+        </div>
+        <div style="background:#252525;padding:12px;border-radius:8px">
+          <div style="color:#6B7280;font-size:11px;font-weight:600">Yield Rate</div>
+          <div style="font-size:20px;font-weight:700;color:#FFD700;margin-top:2px">${u.totalYieldPercent||10}%</div>
+        </div>
+        <div style="background:#252525;padding:12px;border-radius:8px">
+          <div style="color:#6B7280;font-size:11px;font-weight:600">Referral Code</div>
+          <div style="font-size:16px;font-weight:700;color:#fff;margin-top:2px;font-family:monospace">${u.referralCode}</div>
+        </div>
+        <div style="background:#252525;padding:12px;border-radius:8px">
+          <div style="color:#6B7280;font-size:11px;font-weight:600">Qualified Referrals</div>
+          <div style="font-size:16px;font-weight:700;color:#fff;margin-top:2px">${u.qualifiedReferrals||0}</div>
+        </div>
+      </div>
+      <div style="background:#252525;padding:12px;border-radius:8px;margin-bottom:16px">
+        <div style="color:#6B7280;font-size:11px;font-weight:600;margin-bottom:4px">Device ID</div>
+        <code style="font-size:11px;color:#D1D5DB;word-break:break-all">${u.deviceId||'N/A'}</code>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;font-size:12px">
+        <div style="background:#252525;padding:10px;border-radius:6px"><span style="color:#6B7280">Email Verified:</span> <span style="color:${u.emailVerified?'#00C853':'#EF4444'}">${u.emailVerified?'Yes':'No'}</span></div>
+        <div style="background:#252525;padding:10px;border-radius:6px"><span style="color:#6B7280">Welcome Bonus:</span> <span style="color:${u.welcomeBonusPaid?'#00C853':'#6B7280'}">${u.welcomeBonusPaid?'Paid':'No'}</span></div>
+        <div style="background:#252525;padding:10px;border-radius:6px"><span style="color:#6B7280">$30 Bonus:</span> <span style="color:${u.referralBonusPaid?'#00C853':'#6B7280'}">${u.referralBonusPaid?'Paid':'No'}</span></div>
+      </div>
+      ${d.referredByUser?`<div style="background:#252525;padding:10px;border-radius:6px;margin-bottom:16px;font-size:12px"><span style="color:#6B7280">Referred by:</span> <span style="color:#fff">${escHtml(d.referredByUser.fullName)} (${escHtml(d.referredByUser.email)})</span></div>`:''}
+      <div style="color:#6B7280;font-size:11px;margin-bottom:6px">Joined: ${fmtDateTime(u.createdAt)}</div>
+
+      <div style="margin-top:20px">
+        <h4 style="color:#fff;font-size:14px;font-weight:600;margin-bottom:10px;border-top:1px solid #333;padding-top:16px">Deposits (${d.deposits.length})</h4>
+        ${d.deposits.length?`<div style="overflow-x:auto;max-height:200px;overflow-y:auto"><table><thead><tr><th>Amount</th><th>TXID</th><th>Status</th><th>Date</th></tr></thead><tbody>${d.deposits.map(dep=>`<tr>
+          <td style="font-weight:600;color:#00C853">${fmt$(dep.amount)}</td>
+          <td><code style="font-size:10px">${truncate(dep.txid,24)}</code></td>
+          <td><span class="badge badge-${dep.status}">${dep.status}</span></td>
+          <td style="font-size:12px">${fmtDate(dep.createdAt)}</td>
+        </tr>`).join('')}</tbody></table></div>`:'<div style="color:#6B7280;font-size:12px;padding:10px">No deposits</div>'}
+      </div>
+
+      <div style="margin-top:16px">
+        <h4 style="color:#fff;font-size:14px;font-weight:600;margin-bottom:10px">Withdrawals (${d.withdrawals.length})</h4>
+        ${d.withdrawals.length?`<div style="overflow-x:auto;max-height:200px;overflow-y:auto"><table><thead><tr><th>Amount</th><th>Address</th><th>Status</th><th>Date</th></tr></thead><tbody>${d.withdrawals.map(w=>`<tr>
+          <td style="font-weight:600;color:#FFD700">${fmt$(w.amount)}</td>
+          <td><code style="font-size:10px">${truncate(w.usdtAddress,24)}</code></td>
+          <td><span class="badge badge-${w.status}">${w.status}</span></td>
+          <td style="font-size:12px">${fmtDate(w.createdAt)}</td>
+        </tr>`).join('')}</tbody></table></div>`:'<div style="color:#6B7280;font-size:12px;padding:10px">No withdrawals</div>'}
+      </div>
+
+      <div style="margin-top:16px">
+        <h4 style="color:#fff;font-size:14px;font-weight:600;margin-bottom:10px">Investments (${d.investments.length})</h4>
+        ${d.investments.length?`<div style="overflow-x:auto;max-height:200px;overflow-y:auto"><table><thead><tr><th>Amount</th><th>Rate</th><th>Started</th><th>Matures</th><th>Status</th></tr></thead><tbody>${d.investments.map(i=>`<tr>
+          <td style="font-weight:600;color:#00C853">${fmt$(i.amount)}</td>
+          <td>${i.profitRate}%</td>
+          <td style="font-size:12px">${fmtDate(i.startedAt)}</td>
+          <td style="font-size:12px">${fmtDate(i.maturesAt)}</td>
+          <td><span class="badge badge-${i.status}">${i.status}</span></td>
+        </tr>`).join('')}</tbody></table></div>`:'<div style="color:#6B7280;font-size:12px;padding:10px">No investments</div>'}
+      </div>
+
+      <div style="margin-top:16px">
+        <h4 style="color:#fff;font-size:14px;font-weight:600;margin-bottom:10px">Referral Tree (${d.referrals.length})</h4>
+        ${d.referrals.length?`<div style="overflow-x:auto;max-height:200px;overflow-y:auto"><table><thead><tr><th>Name</th><th>Email</th><th>Joined</th></tr></thead><tbody>${d.referrals.map(r=>`<tr>
+          <td style="color:#fff">${escHtml(r.fullName)}</td>
+          <td>${escHtml(r.email)}</td>
+          <td style="font-size:12px">${fmtDate(r.createdAt)}</td>
+        </tr>`).join('')}</tbody></table></div>`:'<div style="color:#6B7280;font-size:12px;padding:10px">No referrals</div>'}
+      </div>
+    `,true);
+  }catch(e){toast('Failed to load user details','error')}
+}
+
+async function toggleBlock(id,block){
+  if(!confirm(block?'Block this user? They will not be able to log in.':'Unblock this user?'))return;
+  try{
+    await api('/api/admin/users/'+id+'/'+(block?'block':'unblock'),{method:'POST'});
+    toast(block?'User blocked':'User unblocked');
+    loadUsers();
+  }catch(e){toast('Failed: '+e.message,'error')}
+}
+
+function showAdjustBalance(id,name,current){
+  showModal(`
+    <h3 style="font-size:18px;font-weight:700;color:#fff;margin-bottom:4px">Adjust Balance</h3>
+    <p style="color:#6B7280;font-size:13px;margin-bottom:20px">${escHtml(name)}</p>
+    <div style="background:#252525;padding:12px;border-radius:8px;margin-bottom:16px;text-align:center">
+      <div style="color:#6B7280;font-size:11px;font-weight:600">Current Balance</div>
+      <div style="font-size:24px;font-weight:700;color:#00C853;margin-top:4px">${fmt$(current)}</div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:#9CA3AF;margin-bottom:4px;display:block;font-weight:600">New Balance ($)</label>
+      <input class="input" id="adj-balance" type="number" step="0.01" value="${parseFloat(current).toFixed(2)}">
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:12px;color:#9CA3AF;margin-bottom:4px;display:block;font-weight:600">Reason (required)</label>
+      <input class="input" id="adj-reason" placeholder="e.g., Manual correction, bonus payment...">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-gold" onclick="doAdjustBalance('${id}')">Update Balance</button>
+    </div>
+  `);
+}
+
+async function doAdjustBalance(id){
+  const bal=document.getElementById('adj-balance').value;
+  const reason=document.getElementById('adj-reason').value.trim();
+  if(!reason){toast('Please provide a reason for the balance adjustment','error');return}
+  try{
+    await api('/api/admin/users/'+id+'/balance',{method:'POST',body:JSON.stringify({balance:bal,reason:reason})});
+    closeModal();toast('Balance updated to '+fmt$(bal));loadUsers();
+  }catch(e){toast('Failed: '+e.message,'error')}
+}
+
+// ===================== DEPOSITS =====================
 async function loadDeposits(){
   const c=document.getElementById('tab-content');
+  c.innerHTML='<div class="pulse" style="text-align:center;padding:60px;color:#6B7280">Loading deposits...</div>';
   try{
-    const deps=await api('/api/admin/deposits');
-    c.innerHTML=`<div class="card" style="overflow-x:auto"><table>
-      <thead><tr><th>User</th><th>Amount</th><th>TXID</th><th>Screenshot</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
-      <tbody>${deps.map(d=>`<tr>
-        <td><div style="font-weight:500;color:#fff">${d.userName||'N/A'}</div><div style="font-size:11px;color:#6B7280">${d.userEmail||''}</div></td>
-        <td style="font-weight:600;color:#10B981">$${parseFloat(d.amount).toFixed(2)}</td>
-        <td><code style="font-size:11px;background:#2A2A2A;padding:2px 6px;border-radius:4px;word-break:break-all">${d.txid}</code></td>
-        <td>${d.screenshotUrl?`<div style="cursor:pointer" onclick="showScreenshot('${d.screenshotUrl}')"><img src="${d.screenshotUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #333" /><div style="font-size:10px;color:#3B82F6;margin-top:2px">Click to enlarge</div></div>`:'<span style="color:#6B7280;font-size:12px">None</span>'}</td>
-        <td><span class="badge badge-${d.status}">${d.status}</span></td>
-        <td style="font-size:12px">${new Date(d.createdAt).toLocaleDateString()}</td>
-        <td>${d.status==='pending'?`<div style="display:flex;gap:6px"><button class="btn btn-emerald" onclick="approveDeposit('${d.id}')">Approve</button><button class="btn btn-danger" onclick="rejectDeposit('${d.id}')">Reject</button></div>`:'—'}</td>
-      </tr>`).join('')}</tbody></table></div>`;
-  }catch(e){c.innerHTML='<div style="color:#EF4444">Failed to load deposits</div>'}
+    allDepositsCache=await api('/api/admin/deposits');
+    renderDepositsTable(allDepositsCache);
+  }catch(e){c.innerHTML=`<div class="card" style="color:#EF4444;text-align:center;padding:40px">Failed to load deposits</div>`}
+}
+
+function renderDepositsTable(deps){
+  const c=document.getElementById('tab-content');
+  c.innerHTML=`<div class="fade-in">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+      <h2 style="font-size:20px;font-weight:700;color:#fff">Deposit Management <span style="color:#6B7280;font-size:14px;font-weight:400">(${deps.length})</span></h2>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input class="input" id="dep-search" placeholder="Search by email or TXID..." style="width:220px" oninput="filterDeposits()">
+        </div>
+        <select class="input" id="dep-status-filter" style="width:140px" onchange="filterDeposits()">
+          <option value="">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="exportCSV('deposits')">Export CSV</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow-x:auto;max-height:70vh;overflow-y:auto">
+      <table>
+        <thead><tr><th>User</th><th>Amount</th><th>TXID</th><th>Screenshot</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+        <tbody id="deps-tbody">${deps.map(d=>depositRow(d)).join('')}</tbody>
+      </table>
+      ${deps.length===0?'<div class="empty-state">No deposits found</div>':''}
+    </div>
+  </div>`;
+}
+
+function depositRow(d){
+  return `<tr>
+    <td><div style="font-weight:600;color:#fff">${escHtml(d.userName||'N/A')}</div><div style="font-size:11px;color:#6B7280">${escHtml(d.userEmail||'')}</div></td>
+    <td style="font-weight:700;color:#00C853;font-size:15px">${fmt$(d.amount)}</td>
+    <td><code style="font-size:10px;background:#2A2A2A;padding:2px 8px;border-radius:4px;word-break:break-all;display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(d.txid)}">${escHtml(d.txid)}</code></td>
+    <td>${d.screenshotUrl?`<div style="cursor:pointer;display:inline-block" onclick="showScreenshot('${d.screenshotUrl}')"><img src="${d.screenshotUrl}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:2px solid #333" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" /><span style="display:none;color:#EF4444;font-size:10px">Failed</span><div style="font-size:9px;color:#3B82F6;margin-top:2px">Click to view</div></div>`:'<span style="color:#4B5563;font-size:11px">None</span>'}</td>
+    <td><span class="badge badge-${d.status}">${d.status}</span></td>
+    <td style="font-size:12px;color:#9CA3AF">${fmtDate(d.createdAt)}</td>
+    <td>${d.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-primary btn-sm" onclick="approveDeposit('${d.id}')">Approve</button><button class="btn btn-danger btn-sm" onclick="showRejectDeposit('${d.id}')">Reject</button></div>`:'<span style="color:#4B5563;font-size:11px">—</span>'}</td>
+  </tr>`;
+}
+
+function filterDeposits(){
+  const q=(document.getElementById('dep-search')?.value||'').toLowerCase();
+  const status=document.getElementById('dep-status-filter')?.value||'';
+  let filtered=allDepositsCache;
+  if(q)filtered=filtered.filter(d=>(d.userEmail||'').toLowerCase().includes(q)||(d.txid||'').toLowerCase().includes(q)||(d.userName||'').toLowerCase().includes(q));
+  if(status)filtered=filtered.filter(d=>d.status===status);
+  document.getElementById('deps-tbody').innerHTML=filtered.map(d=>depositRow(d)).join('');
 }
 
 function showScreenshot(url){
-  const overlay=document.createElement('div');
-  overlay.className='modal-overlay';
-  overlay.onclick=function(e){if(e.target===overlay)overlay.remove()};
-  overlay.innerHTML=`<div style="max-width:90vw;max-height:90vh;position:relative">
-    <button class="btn btn-outline" style="position:absolute;top:-40px;right:0" onclick="this.closest('.modal-overlay').remove()">Close</button>
-    <img src="${url}" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;border:1px solid #333" />
-  </div>`;
-  document.body.appendChild(overlay);
+  showModal(`
+    <div style="text-align:center">
+      <h3 style="font-size:16px;font-weight:600;color:#fff;margin-bottom:16px">Payment Screenshot</h3>
+      <img src="${url}" style="max-width:100%;max-height:70vh;object-fit:contain;border-radius:10px;border:1px solid #333" onerror="this.outerHTML='<div style=\\'color:#EF4444;padding:40px\\'>Failed to load image</div>'" />
+      <div style="margin-top:16px">
+        <a href="${url}" target="_blank" class="btn btn-outline btn-sm" style="text-decoration:none">Open in New Tab</a>
+      </div>
+    </div>
+  `);
 }
 
-async function approveDeposit(id){if(!confirm('Approve this deposit?'))return;try{await api('/api/admin/deposits/'+id+'/approve',{method:'POST'});loadDeposits()}catch(e){alert('Failed')}}
-async function rejectDeposit(id){if(!confirm('Reject this deposit?'))return;try{await api('/api/admin/deposits/'+id+'/reject',{method:'POST'});loadDeposits()}catch(e){alert('Failed')}}
+async function approveDeposit(id){
+  if(!confirm('Approve this deposit? This will credit the user\'s balance.'))return;
+  try{await api('/api/admin/deposits/'+id+'/approve',{method:'POST'});toast('Deposit approved');loadDeposits()}catch(e){toast('Failed: '+e.message,'error')}
+}
 
+function showRejectDeposit(id){
+  showModal(`
+    <h3 style="font-size:18px;font-weight:700;color:#fff;margin-bottom:16px">Reject Deposit</h3>
+    <p style="color:#6B7280;font-size:13px;margin-bottom:16px">Please provide a reason for rejecting this deposit (min 10 characters).</p>
+    <textarea class="input" id="reject-reason" rows="3" placeholder="Enter rejection reason..." style="resize:vertical"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-danger" onclick="doRejectDeposit('${id}')">Reject Deposit</button>
+    </div>
+  `);
+}
+
+async function doRejectDeposit(id){
+  const reason=document.getElementById('reject-reason').value.trim();
+  if(reason.length<10){toast('Reason must be at least 10 characters','error');return}
+  try{await api('/api/admin/deposits/'+id+'/reject',{method:'POST',body:JSON.stringify({reason})});closeModal();toast('Deposit rejected');loadDeposits()}catch(e){toast('Failed: '+e.message,'error')}
+}
+
+// ===================== WITHDRAWALS =====================
 async function loadWithdrawals(){
   const c=document.getElementById('tab-content');
+  c.innerHTML='<div class="pulse" style="text-align:center;padding:60px;color:#6B7280">Loading withdrawals...</div>';
   try{
-    const wds=await api('/api/admin/withdrawals');
-    c.innerHTML=`<div class="card" style="overflow-x:auto"><table>
-      <thead><tr><th>User</th><th>Amount</th><th>USDT Address</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
-      <tbody>${wds.map(w=>`<tr>
-        <td><div style="font-weight:500;color:#fff">${w.userName||'N/A'}</div><div style="font-size:11px;color:#6B7280">${w.userEmail||''}</div></td>
-        <td style="font-weight:600;color:#F59E0B">$${parseFloat(w.amount).toFixed(2)}</td>
-        <td><code style="font-size:11px;background:#2A2A2A;padding:2px 6px;border-radius:4px">${w.usdtAddress}</code></td>
-        <td><span class="badge badge-${w.status}">${w.status}</span></td>
-        <td style="font-size:12px">${new Date(w.createdAt).toLocaleDateString()}</td>
-        <td>${w.status==='pending'?`<div style="display:flex;gap:6px"><button class="btn btn-emerald" onclick="processWithdrawal('${w.id}')">Process</button><button class="btn btn-danger" onclick="rejectWithdrawal('${w.id}')">Reject</button></div>`:'—'}</td>
-      </tr>`).join('')}</tbody></table></div>`;
-  }catch(e){c.innerHTML='<div style="color:#EF4444">Failed to load withdrawals</div>'}
+    allWithdrawalsCache=await api('/api/admin/withdrawals');
+    renderWithdrawalsTable(allWithdrawalsCache);
+  }catch(e){c.innerHTML=`<div class="card" style="color:#EF4444;text-align:center;padding:40px">Failed to load withdrawals</div>`}
 }
 
-async function processWithdrawal(id){if(!confirm('Mark withdrawal as processed?'))return;try{await api('/api/admin/withdrawals/'+id+'/process',{method:'POST'});loadWithdrawals()}catch(e){alert('Failed')}}
-async function rejectWithdrawal(id){if(!confirm('Reject this withdrawal?'))return;try{await api('/api/admin/withdrawals/'+id+'/reject',{method:'POST'});loadWithdrawals()}catch(e){alert('Failed')}}
-
-async function loadUsers(){
+function renderWithdrawalsTable(wds){
   const c=document.getElementById('tab-content');
-  try{
-    const usrs=await api('/api/admin/users');
-    c.innerHTML=`<div class="card" style="overflow-x:auto"><table>
-      <thead><tr><th>Name</th><th>Email</th><th>Balance</th><th>Yield</th><th>Referrals</th><th>Device ID</th><th>Verified</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
-      <tbody>${usrs.map(u=>`<tr>
-        <td style="font-weight:500;color:#fff">${u.fullName}</td>
-        <td>${u.email}</td>
-        <td style="font-weight:600;color:#10B981">$${parseFloat(u.balance).toFixed(2)}</td>
-        <td style="font-weight:600;color:#F59E0B">${u.totalYieldPercent||10}%</td>
-        <td><span style="font-weight:600">${u.qualifiedReferrals||0}</span><span style="color:#6B7280">/${u.referralCount||0}</span> <span style="color:#6B7280;font-size:11px">(${u.referralCode})</span>${u.referralBonusPaid?'<span class="badge badge-approved" style="margin-left:4px">$30</span>':''}</td>
-        <td><code style="font-size:10px;background:#2A2A2A;padding:2px 6px;border-radius:4px">${u.deviceId?u.deviceId.substring(0,16)+'...':'N/A'}</code></td>
-        <td><span class="badge ${u.emailVerified?'badge-approved':'badge-pending'}">${u.emailVerified?'Yes':'No'}</span></td>
-        <td><span class="badge ${u.isBlocked?'badge-rejected':'badge-approved'}">${u.isBlocked?'Blocked':'Active'}</span></td>
-        <td style="font-size:12px">${new Date(u.createdAt).toLocaleDateString()}</td>
-        <td><div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${u.isBlocked?`<button class="btn btn-emerald" onclick="unblockUser('${u.id}')">Unblock</button>`:`<button class="btn btn-danger" onclick="blockUser('${u.id}')">Block</button>`}
-          <button class="btn btn-gold" onclick="adjustBalance('${u.id}','${u.fullName}','${u.balance}')">Balance</button>
-        </div></td>
-      </tr>`).join('')}</tbody></table></div>`;
-  }catch(e){c.innerHTML='<div style="color:#EF4444">Failed to load users</div>'}
-}
-
-async function blockUser(id){if(!confirm('Block this user?'))return;try{await api('/api/admin/users/'+id+'/block',{method:'POST'});loadUsers()}catch(e){alert('Failed')}}
-async function unblockUser(id){if(!confirm('Unblock this user?'))return;try{await api('/api/admin/users/'+id+'/unblock',{method:'POST'});loadUsers()}catch(e){alert('Failed')}}
-
-function adjustBalance(id,name,current){
-  const overlay=document.createElement('div');
-  overlay.className='modal-overlay';
-  overlay.innerHTML=`<div class="modal-content">
-    <h3 style="font-size:18px;font-weight:600;margin-bottom:16px">Adjust Balance — ${name}</h3>
-    <p style="color:#9CA3AF;font-size:13px;margin-bottom:12px">Current: $${parseFloat(current).toFixed(2)}</p>
-    <input class="input" id="new-balance" type="number" step="0.01" value="${parseFloat(current).toFixed(2)}" placeholder="New balance">
-    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
-      <button class="btn btn-outline" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-      <button class="btn btn-gold" onclick="doAdjust('${id}')">Update</button>
+  c.innerHTML=`<div class="fade-in">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+      <h2 style="font-size:20px;font-weight:700;color:#fff">Withdrawal Management <span style="color:#6B7280;font-size:14px;font-weight:400">(${wds.length})</span></h2>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input class="input" id="wd-search" placeholder="Search by email or address..." style="width:220px" oninput="filterWithdrawals()">
+        </div>
+        <select class="input" id="wd-status-filter" style="width:140px" onchange="filterWithdrawals()">
+          <option value="">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="processed">Processed</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="exportCSV('withdrawals')">Export CSV</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow-x:auto;max-height:70vh;overflow-y:auto">
+      <table>
+        <thead><tr><th>User</th><th>Amount</th><th>USDT Address</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+        <tbody id="wds-tbody">${wds.map(w=>withdrawalRow(w)).join('')}</tbody>
+      </table>
+      ${wds.length===0?'<div class="empty-state">No withdrawals found</div>':''}
     </div>
   </div>`;
-  document.body.appendChild(overlay);
 }
 
-async function doAdjust(id){
-  const bal=document.getElementById('new-balance').value;
-  try{await api('/api/admin/users/'+id+'/balance',{method:'POST',body:JSON.stringify({balance:bal})});document.querySelector('.modal-overlay').remove();loadUsers()}catch(e){alert('Failed')}
+function withdrawalRow(w){
+  return `<tr>
+    <td><div style="font-weight:600;color:#fff">${escHtml(w.userName||'N/A')}</div><div style="font-size:11px;color:#6B7280">${escHtml(w.userEmail||'')}</div></td>
+    <td style="font-weight:700;color:#FFD700;font-size:15px">${fmt$(w.amount)}</td>
+    <td><code style="font-size:10px;background:#2A2A2A;padding:2px 8px;border-radius:4px;word-break:break-all;display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(w.usdtAddress)}">${escHtml(w.usdtAddress)}</code></td>
+    <td><span class="badge badge-${w.status}">${w.status}</span></td>
+    <td style="font-size:12px;color:#9CA3AF">${fmtDate(w.createdAt)}</td>
+    <td>${w.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-primary btn-sm" onclick="processWithdrawal('${w.id}')">Process</button><button class="btn btn-danger btn-sm" onclick="showRejectWithdrawal('${w.id}')">Reject</button></div>`:'<span style="color:#4B5563;font-size:11px">—</span>'}</td>
+  </tr>`;
 }
 
+function filterWithdrawals(){
+  const q=(document.getElementById('wd-search')?.value||'').toLowerCase();
+  const status=document.getElementById('wd-status-filter')?.value||'';
+  let filtered=allWithdrawalsCache;
+  if(q)filtered=filtered.filter(w=>(w.userEmail||'').toLowerCase().includes(q)||(w.usdtAddress||'').toLowerCase().includes(q)||(w.userName||'').toLowerCase().includes(q));
+  if(status)filtered=filtered.filter(w=>w.status===status);
+  document.getElementById('wds-tbody').innerHTML=filtered.map(w=>withdrawalRow(w)).join('');
+}
+
+async function processWithdrawal(id){
+  if(!confirm('Mark this withdrawal as processed? Make sure you have sent the USDT manually from your wallet.'))return;
+  try{await api('/api/admin/withdrawals/'+id+'/process',{method:'POST'});toast('Withdrawal processed');loadWithdrawals()}catch(e){toast('Failed: '+e.message,'error')}
+}
+
+function showRejectWithdrawal(id){
+  showModal(`
+    <h3 style="font-size:18px;font-weight:700;color:#fff;margin-bottom:16px">Reject Withdrawal</h3>
+    <p style="color:#6B7280;font-size:13px;margin-bottom:16px">The user's balance will be refunded. Please provide a reason (min 10 characters).</p>
+    <textarea class="input" id="reject-wd-reason" rows="3" placeholder="Enter rejection reason..." style="resize:vertical"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-danger" onclick="doRejectWithdrawal('${id}')">Reject & Refund</button>
+    </div>
+  `);
+}
+
+async function doRejectWithdrawal(id){
+  const reason=document.getElementById('reject-wd-reason')?.value?.trim()||'';
+  if(reason.length<10){toast('Reason must be at least 10 characters','error');return}
+  try{await api('/api/admin/withdrawals/'+id+'/reject',{method:'POST',body:JSON.stringify({reason})});closeModal();toast('Withdrawal rejected, balance refunded');loadWithdrawals()}catch(e){toast('Failed: '+e.message,'error')}
+}
+
+// ===================== INVESTMENTS =====================
 async function loadInvestments(){
   const c=document.getElementById('tab-content');
+  c.innerHTML='<div class="pulse" style="text-align:center;padding:60px;color:#6B7280">Loading investments...</div>';
   try{
     const invs=await api('/api/admin/investments');
-    c.innerHTML=`<div class="card" style="overflow-x:auto"><table>
-      <thead><tr><th>User ID</th><th>Amount</th><th>Rate</th><th>Started</th><th>Matures</th><th>Status</th><th>Timer</th></tr></thead>
-      <tbody>${invs.map(i=>{
-        const now=Date.now();const mat=new Date(i.maturesAt).getTime();const remaining=Math.max(0,mat-now);
-        const h=Math.floor(remaining/3600000);const m=Math.floor((remaining%3600000)/60000);
-        return `<tr>
-        <td style="font-size:11px">${i.userId.substring(0,8)}...</td>
-        <td style="font-weight:600;color:#10B981">$${parseFloat(i.amount).toFixed(2)}</td>
-        <td>${i.profitRate}%</td>
-        <td style="font-size:12px">${new Date(i.startedAt).toLocaleString()}</td>
-        <td style="font-size:12px">${new Date(i.maturesAt).toLocaleString()}</td>
-        <td><span class="badge badge-${i.status==='active'?'pending':'approved'}">${i.status}</span></td>
-        <td style="font-weight:600;color:${remaining>0?'#F59E0B':'#10B981'}">${remaining>0?h+'h '+m+'m':'Matured'}</td>
-      </tr>`}).join('')}</tbody></table></div>`;
-  }catch(e){c.innerHTML='<div style="color:#EF4444">Failed to load investments</div>'}
+    c.innerHTML=`<div class="fade-in">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 style="font-size:20px;font-weight:700;color:#fff">Investment & Timer Tracking <span style="color:#6B7280;font-size:14px;font-weight:400">(${invs.length})</span></h2>
+        <button class="btn btn-outline btn-sm" onclick="loadInvestments()">Refresh</button>
+      </div>
+      <div class="card" style="padding:0;overflow-x:auto;max-height:70vh;overflow-y:auto">
+        <table>
+          <thead><tr><th>User</th><th>Amount</th><th>Start Time</th><th>Remaining Time</th><th>Yield %</th><th>Status</th></tr></thead>
+          <tbody>${invs.map(i=>{
+            const now=Date.now();const mat=new Date(i.maturesAt).getTime();const remaining=Math.max(0,mat-now);
+            const h=Math.floor(remaining/3600000);const m=Math.floor((remaining%3600000)/60000);const s=Math.floor((remaining%60000)/1000);
+            const pct=Math.min(100,((72*3600000-remaining)/(72*3600000))*100);
+            return `<tr>
+              <td><div style="font-weight:600;color:#fff">${escHtml(i.userName||'Unknown')}</div><div style="font-size:11px;color:#6B7280">${escHtml(i.userEmail||i.userId.substring(0,8)+'...')}</div></td>
+              <td style="font-weight:700;color:#00C853;font-size:15px">${fmt$(i.amount)}</td>
+              <td style="font-size:12px;color:#9CA3AF">${fmtDateTime(i.startedAt)}</td>
+              <td>
+                <div class="countdown" style="font-weight:700;color:${remaining>0?'#FFD700':'#00C853'};font-size:15px">${remaining>0?h+'h '+m+'m '+s+'s':'Matured'}</div>
+                <div style="background:#2A2A2A;border-radius:4px;height:4px;margin-top:6px;overflow:hidden"><div style="background:${remaining>0?'#FFD700':'#00C853'};height:100%;width:${pct.toFixed(1)}%;border-radius:4px;transition:width .5s"></div></div>
+              </td>
+              <td style="font-weight:700;color:#FFD700">${i.profitRate}%</td>
+              <td><span class="badge badge-${i.status==='active'?'active':'completed'}">${i.status}</span>${i.profitPaid?'<span class="badge badge-approved" style="margin-left:4px;font-size:9px">Paid</span>':''}</td>
+            </tr>`}).join('')}</tbody>
+        </table>
+        ${invs.length===0?'<div class="empty-state">No investments found</div>':''}
+      </div>
+    </div>`;
+  }catch(e){c.innerHTML=`<div class="card" style="color:#EF4444;text-align:center;padding:40px">Failed to load investments</div>`}
 }
 
+// ===================== REFERRALS =====================
+async function loadReferrals(){
+  const c=document.getElementById('tab-content');
+  c.innerHTML='<div class="pulse" style="text-align:center;padding:60px;color:#6B7280">Loading referral data...</div>';
+  try{
+    const comms=await api('/api/admin/referral-commissions');
+    const users=allUsersCache.length?allUsersCache:await api('/api/admin/users');
+    if(!allUsersCache.length)allUsersCache=users;
+    const topReferrers=users.filter(u=>(u.referralCount||0)>0).sort((a,b)=>(b.qualifiedReferrals||0)-(a.qualifiedReferrals||0)).slice(0,20);
+
+    c.innerHTML=`<div class="fade-in">
+      <h2 style="font-size:20px;font-weight:700;color:#fff;margin-bottom:16px">Referral & Bonus System</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div class="stat-card green">
+          <div style="color:#6B7280;font-size:11px;text-transform:uppercase;font-weight:600">Total Commissions</div>
+          <div style="font-size:28px;font-weight:800;margin-top:6px;color:#00C853">${comms.length}</div>
+        </div>
+        <div class="stat-card gold">
+          <div style="color:#6B7280;font-size:11px;text-transform:uppercase;font-weight:600">Total Commission Value</div>
+          <div style="font-size:28px;font-weight:800;margin-top:6px;color:#FFD700">${fmt$(comms.reduce((s,c)=>s+parseFloat(c.amount||0),0))}</div>
+        </div>
+      </div>
+
+      <h3 style="color:#fff;font-size:16px;font-weight:600;margin-bottom:12px">Top Referrers</h3>
+      <div class="card" style="padding:0;overflow-x:auto;margin-bottom:20px">
+        <table>
+          <thead><tr><th>User</th><th>Referral Code</th><th>Total Referrals</th><th>Qualified</th><th>Yield %</th><th>$30 Bonus</th></tr></thead>
+          <tbody>${topReferrers.map(u=>`<tr>
+            <td><div style="font-weight:600;color:#fff">${escHtml(u.fullName)}</div><div style="font-size:11px;color:#6B7280">${escHtml(u.email)}</div></td>
+            <td><code style="font-size:12px;background:#2A2A2A;padding:3px 8px;border-radius:4px;font-weight:700;letter-spacing:.05em">${u.referralCode}</code></td>
+            <td style="font-weight:600">${u.referralCount||0}</td>
+            <td style="font-weight:700;color:${(u.qualifiedReferrals||0)>0?'#00C853':'#6B7280'}">${u.qualifiedReferrals||0}</td>
+            <td style="font-weight:700;color:#FFD700">${u.totalYieldPercent||10}%</td>
+            <td>${u.referralBonusPaid?'<span class="badge badge-approved">Paid</span>':'<span class="badge badge-pending">Not yet</span>'}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+        ${topReferrers.length===0?'<div class="empty-state">No referrers yet</div>':''}
+      </div>
+
+      <h3 style="color:#fff;font-size:16px;font-weight:600;margin-bottom:12px">Recent Commissions</h3>
+      <div class="card" style="padding:0;overflow-x:auto">
+        <table>
+          <thead><tr><th>Referrer</th><th>From User</th><th>Amount</th><th>Date</th></tr></thead>
+          <tbody>${comms.slice(0,50).map(c=>`<tr>
+            <td><div style="font-weight:600;color:#fff">${escHtml(c.referrerName||'N/A')}</div><div style="font-size:11px;color:#6B7280">${escHtml(c.referrerEmail||'')}</div></td>
+            <td><div style="color:#D1D5DB">${escHtml(c.fromUserName||'N/A')}</div><div style="font-size:11px;color:#6B7280">${escHtml(c.fromUserEmail||'')}</div></td>
+            <td style="font-weight:600;color:#00C853">${fmt$(c.amount)}</td>
+            <td style="font-size:12px;color:#9CA3AF">${fmtDate(c.createdAt)}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+        ${comms.length===0?'<div class="empty-state">No commissions yet</div>':''}
+      </div>
+    </div>`;
+  }catch(e){c.innerHTML=`<div class="card" style="color:#EF4444;text-align:center;padding:40px">Failed to load referral data</div>`}
+}
+
+// ===================== AUDIT LOGS =====================
 async function loadLogs(){
   const c=document.getElementById('tab-content');
+  c.innerHTML='<div class="pulse" style="text-align:center;padding:60px;color:#6B7280">Loading audit logs...</div>';
   try{
     const logs=await api('/api/admin/audit-logs');
-    c.innerHTML=`<div class="card" style="overflow-x:auto"><table>
-      <thead><tr><th>Action</th><th>Details</th><th>Date</th></tr></thead>
-      <tbody>${logs.map(l=>`<tr>
-        <td><span class="badge badge-approved">${l.action}</span></td>
-        <td>${l.details||'—'}</td>
-        <td style="font-size:12px">${new Date(l.createdAt).toLocaleString()}</td>
-      </tr>`).join('')}</tbody></table></div>`;
-    if(logs.length===0)c.innerHTML='<div class="card" style="text-align:center;color:#6B7280;padding:40px">No audit logs yet</div>';
-  }catch(e){c.innerHTML='<div style="color:#EF4444">Failed to load logs</div>'}
+    c.innerHTML=`<div class="fade-in">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 style="font-size:20px;font-weight:700;color:#fff">Security & Audit Logs <span style="color:#6B7280;font-size:14px;font-weight:400">(${logs.length})</span></h2>
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input class="input" id="log-search" placeholder="Search logs..." style="width:240px" oninput="filterLogs()">
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow-x:auto;max-height:70vh;overflow-y:auto">
+        <table>
+          <thead><tr><th>Action</th><th>Details</th><th>Target User</th><th>Date & Time</th></tr></thead>
+          <tbody id="logs-tbody">${logs.map(l=>logRow(l)).join('')}</tbody>
+        </table>
+        ${logs.length===0?'<div class="empty-state">No audit logs yet</div>':''}
+      </div>
+    </div>`;
+    window._logsCache=logs;
+  }catch(e){c.innerHTML=`<div class="card" style="color:#EF4444;text-align:center;padding:40px">Failed to load audit logs</div>`}
 }
 
-if(token){renderDashboard()}else{renderLogin()}
+function logRow(l){
+  const actionColors={'deposit_approved':'#00C853','deposit_rejected':'#EF4444','withdrawal_processed':'#3B82F6','withdrawal_rejected':'#EF4444','user_blocked':'#EF4444','user_unblocked':'#00C853','balance_adjusted':'#FFD700','investment_matured':'#00C853','investment_started':'#3B82F6','referral_qualified':'#FFD700','welcome_bonus_paid':'#00C853','referral_milestone_bonus':'#FFD700','user_registered':'#3B82F6','deposit_submitted':'#6B7280'};
+  const color=actionColors[l.action]||'#6B7280';
+  return `<tr>
+    <td><span style="background:${color}22;color:${color};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600">${l.action.replace(/_/g,' ')}</span></td>
+    <td style="font-size:12px;max-width:400px;word-break:break-word">${escHtml(l.details||'—')}</td>
+    <td>${l.targetUserId?`<code style="font-size:10px;background:#2A2A2A;padding:2px 6px;border-radius:4px">${l.targetUserId.substring(0,8)}...</code>`:'—'}</td>
+    <td style="font-size:12px;color:#9CA3AF;white-space:nowrap">${fmtDateTime(l.createdAt)}</td>
+  </tr>`;
+}
+
+function filterLogs(){
+  const q=(document.getElementById('log-search')?.value||'').toLowerCase();
+  if(!window._logsCache)return;
+  const filtered=q?window._logsCache.filter(l=>(l.action||'').toLowerCase().includes(q)||(l.details||'').toLowerCase().includes(q)):window._logsCache;
+  document.getElementById('logs-tbody').innerHTML=filtered.map(l=>logRow(l)).join('');
+}
+
+// ===================== CSV EXPORT =====================
+async function exportCSV(type){
+  try{
+    const csv=await api('/api/admin/export/'+type);
+    const blob=new Blob([csv],{type:'text/csv'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=type+'_export_'+new Date().toISOString().split('T')[0]+'.csv';
+    document.body.appendChild(a);a.click();a.remove();
+    URL.revokeObjectURL(url);
+    toast(type+' exported successfully');
+  }catch(e){toast('Export failed: '+e.message,'error')}
+}
+
+// ===================== MODAL =====================
+function showModal(content,isLarge=false){
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay';
+  overlay.id='modal-overlay';
+  overlay.onclick=function(e){if(e.target===overlay)closeModal()};
+  overlay.innerHTML=`<div class="modal-content ${isLarge?'modal-lg':''} fade-in">
+    <button onclick="closeModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;color:#6B7280;cursor:pointer;font-size:20px;line-height:1;padding:4px 8px;border-radius:4px" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6B7280'">&times;</button>
+    ${content}
+  </div>`;
+  document.body.appendChild(overlay);
+  document.body.style.overflow='hidden';
+}
+
+function closeModal(){
+  const el=document.getElementById('modal-overlay');
+  if(el)el.remove();
+  document.body.style.overflow='';
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+
+// ===================== INIT =====================
+if(token){renderApp()}else{renderLogin()}
 </script>
 </body>
 </html>
