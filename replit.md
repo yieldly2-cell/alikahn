@@ -37,8 +37,12 @@ Preferred communication style: Simple, everyday language.
 - **Server file:** `server/index.ts` — Express app with CORS handling for Replit domains and localhost
 - **Routes:** `server/routes.ts` — All API endpoints including auth, deposits, withdrawals, investments, referrals, and admin operations
 - **Authentication:** JWT-based auth with two token types (`user` and `admin`). Middleware functions `authMiddleware` and `adminMiddleware` validate tokens. Passwords hashed with `bcryptjs`.
+- **Email verification:** OTP-based email verification during registration via `nodemailer`. 6-digit codes with 10-minute expiry, max 3 attempts. Temporary/disposable emails blocked (40+ domains). Falls back to console logging if GMAIL_APP_PASSWORD not set. Code in `server/email.ts`.
+- **File uploads:** Screenshot proof of payment uploaded via `multer` to `/uploads` directory. Max 10MB, supports JPG/PNG/GIF/WebP. Upload endpoint at `/api/upload`.
+- **Manual investment start:** Deposit approval credits user balance only. User must manually click "Start Investment" on dashboard to begin 72-hour timer. Endpoint: `POST /api/investments/start`.
+- **Device enforcement:** One account per device — `deviceId` field checked during registration.
 - **Cron jobs:** `node-cron` for processing matured investments (72-hour timer) and auto-paying profits
-- **Admin panel:** Server-rendered HTML at `/admin` route (`server/templates/admin.html`) — a single-page vanilla JS app using Tailwind CSS CDN. Not a separate React app.
+- **Admin panel:** Server-rendered HTML at `/admin` route (`server/templates/admin.html`) — a single-page vanilla JS app using Tailwind CSS CDN. Features: screenshot viewer for deposits, device ID display for users, email verification status, enhanced audit logging.
 
 ### Database
 
@@ -46,12 +50,13 @@ Preferred communication style: Simple, everyday language.
 - **ORM:** Drizzle ORM with `drizzle-zod` for schema validation
 - **Schema location:** `shared/schema.ts` — shared between server and client type definitions
 - **Tables:**
-  - `users` — id (UUID), fullName, email, password, referralCode, referredBy, balance, isBlocked, deviceId, createdAt
+  - `users` — id (UUID), fullName, email, password, referralCode, referredBy, balance, isBlocked, deviceId, emailVerified, createdAt
   - `deposits` — id, userId, amount, txid, screenshotUrl, status (pending/approved/rejected), createdAt, reviewedAt
   - `investments` — id, userId, depositId, amount, profitRate, startedAt, maturesAt, profitPaid, status
   - `withdrawals` — id, userId, amount, usdtAddress, status, createdAt
   - `referralCommissions` — tracks referral earnings
   - `auditLogs` — admin action audit trail
+  - `otpCodes` — email, code, attempts, verified, expiresAt, createdAt (for email OTP verification)
 - **Migrations:** Drizzle Kit with `drizzle-kit push` command for schema sync
 - **Storage layer:** `server/storage.ts` — data access functions wrapping Drizzle queries
 
@@ -83,6 +88,8 @@ Preferred communication style: Simple, everyday language.
 - **PostgreSQL** — Primary database, connected via `DATABASE_URL` environment variable using `pg` driver
 - **JWT (jsonwebtoken)** — Token-based authentication for both users and admin
 - **bcryptjs** — Password hashing
+- **nodemailer** — Email sending for OTP verification (requires GMAIL_APP_PASSWORD secret for production)
+- **multer** — File upload handling for deposit screenshots
 - **node-cron** — Server-side scheduled tasks for investment maturation
 - **Tailwind CSS (CDN)** — Used only in the admin HTML panel, loaded via CDN script tag
 - **Expo ecosystem** — expo-router, expo-image-picker, expo-clipboard, expo-haptics, expo-linear-gradient, expo-blur, expo-location, expo-web-browser
