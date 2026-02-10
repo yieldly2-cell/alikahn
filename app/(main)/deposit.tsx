@@ -12,7 +12,6 @@ import SvgQRCode from "react-native-qrcode-svg";
 import { useAuth } from "@/lib/auth-context";
 import { getApiUrl } from "@/lib/query-client";
 import { fetchWithTimeout } from "@/lib/fetch-helper";
-import { fetch as expoFetch } from "expo/fetch";
 import { File } from "expo-file-system";
 import Colors from "@/constants/colors";
 
@@ -109,13 +108,14 @@ export default function DepositScreen() {
         formData.append("screenshot", file as any);
       }
 
-      const res = await expoFetch(uploadUrl.toString(), {
+      const res = await fetchWithTimeout(uploadUrl.toString(), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
         },
         body: formData,
-      });
+        timeout: 30000,
+      }, 1);
 
       if (!res.ok) {
         throw new Error("Upload failed");

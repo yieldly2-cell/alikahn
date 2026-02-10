@@ -1,20 +1,21 @@
-import { fetch } from "expo/fetch";
+import { Platform } from "react-native";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { fetchWithTimeout } from "@/lib/fetch-helper";
 
-/**
- * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
- * @returns {string} The API base URL
- */
 export function getApiUrl(): string {
-  let host = process.env.EXPO_PUBLIC_DOMAIN;
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    const loc = window.location;
+    if (loc.hostname === "localhost" || loc.hostname === "127.0.0.1") {
+      return "http://localhost:5000";
+    }
+    return `${loc.protocol}//${loc.hostname}:5000`;
+  }
 
+  const host = process.env.EXPO_PUBLIC_DOMAIN;
   if (!host) {
     throw new Error("EXPO_PUBLIC_DOMAIN is not set");
   }
-
-  let url = new URL(`https://${host}`);
-
-  return url.href;
+  return `https://${host}`;
 }
 
 async function throwIfResNotOk(res: Response) {
@@ -32,7 +33,7 @@ export async function apiRequest(
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
 
-  const res = await fetch(url.toString(), {
+  const res = await fetchWithTimeout(url.toString(), {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
@@ -52,7 +53,7 @@ export const getQueryFn: <T>(options: {
     const baseUrl = getApiUrl();
     const url = new URL(queryKey.join("/") as string, baseUrl);
 
-    const res = await fetch(url.toString(), {
+    const res = await fetchWithTimeout(url.toString(), {
       credentials: "include",
     });
 

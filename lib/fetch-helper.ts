@@ -1,4 +1,12 @@
-import { fetch as expoFetch } from "expo/fetch";
+import { Platform } from "react-native";
+
+async function doFetch(url: string, options: RequestInit): Promise<Response> {
+  if (Platform.OS === "web") {
+    return globalThis.fetch(url, options);
+  }
+  const { fetch: expoFetch } = await import("expo/fetch");
+  return expoFetch(url, options);
+}
 
 export async function fetchWithTimeout(
   url: string,
@@ -12,7 +20,7 @@ export async function fetchWithTimeout(
     const timer = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const res = await expoFetch(url, {
+      const res = await doFetch(url, {
         ...fetchOptions,
         signal: controller.signal,
       });
