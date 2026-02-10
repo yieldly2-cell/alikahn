@@ -85,33 +85,19 @@ async function processMaturedInvestments() {
       if (!user) continue;
 
       const amount = parseFloat(inv.amount);
-      const referralCount = await storage.getReferralCount(user.id);
+      const profitRate = parseFloat(inv.profitRate);
+      const profit = amount * (profitRate / 100);
 
-      let totalRate = 10;
-      if (referralCount >= 3) totalRate = 13;
-      else if (referralCount >= 2) totalRate = 12;
-      else if (referralCount >= 1) totalRate = 11;
-
-      const userProfit = amount * 0.10;
-      const referralBonus = amount * ((totalRate - 10) / 100);
-
-      await storage.updateUserBalance(user.id, (amount + userProfit).toFixed(6));
+      await storage.updateUserBalance(user.id, (amount + profit).toFixed(6));
       await storage.markInvestmentPaid(inv.id);
 
-      if (referralBonus > 0 && user.referredBy) {
-        const referrer = await storage.getUserById(user.referredBy);
-        if (referrer) {
-          await storage.updateUserBalance(referrer.id, referralBonus.toFixed(6));
-          await storage.createReferralCommission({
-            referrerId: referrer.id,
-            fromUserId: user.id,
-            investmentId: inv.id,
-            amount: referralBonus.toFixed(6),
-          });
-        }
-      }
+      await storage.createAuditLog({
+        action: "investment_matured",
+        details: `Investment $${amount.toFixed(2)} matured at ${profitRate}% yield. Profit: $${profit.toFixed(2)} paid to user`,
+        targetUserId: user.id,
+      });
 
-      console.log(`Investment ${inv.id} matured: user ${user.id} received $${userProfit.toFixed(2)} profit`);
+      console.log(`Investment ${inv.id} matured: user ${user.id} received $${profit.toFixed(2)} profit at ${profitRate}% rate`);
     }
   } catch (err) {
     console.error("Error processing matured investments:", err);
@@ -325,8 +311,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUserById(req.userId!);
       if (!user) return res.status(404).json({ message: "User not found" });
       const { password: _, ...userWithoutPassword } = user;
-      const referralCount = await storage.getReferralCount(user.id);
-      return res.json({ ...userWithoutPassword, referralCount });
+      const totalReferrals = await storage.getReferralCount(user.id);
+      return res.json({
+        ...userWithoutPassword,
+        referralCount: totalReferrals,
+        qualifiedReferrals: user.qualifiedReferrals,
+        totalYieldPercent: user.totalYieldPercent,
+      });
     } catch (err) {
       return res.status(500).json({ message: "Server error" });
     }
@@ -435,11 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUserById(req.userId!);
       if (!user) return res.status(404).json({ message: "User not found" });
 
-      const referralCount = await storage.getReferralCount(user.id);
-      let profitRate = "10";
-      if (referralCount >= 3) profitRate = "13";
-      else if (referralCount >= 2) profitRate = "12";
-      else if (referralCount >= 1) profitRate = "11";
+      const profitRate = String(user.totalYieldPercent);
 
       const investment = await storage.createInvestment({
         userId: req.userId!,
@@ -510,28 +497,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUserById(req.userId!);
       if (!user) return res.status(404).json({ message: "User not found" });
 
-      const referrals = await storage.getReferrals(req.userId!);
-      const commissions = await storage.getCommissionsByUser(req.userId!);
-      const referralCount = referrals.length;
+      const referralsWithInfo = await storage.getReferralsWithDepositInfo(req.userId!);
+      const totalReferrals = referralsWithInfo.length;
+      const qualifiedReferrals = user.qualifiedReferrals;
+      const currentYield = user.totalYieldPercent;
 
-      let currentTier = "10%";
-      if (referralCount >= 3) currentTier = "13%";
-      else if (referralCount >= 2) currentTier = "12%";
-      else if (referralCount >= 1) currentTier = "11%";
-
-      const totalEarnings = commissions.reduce((sum, c) => sum + parseFloat(c.amount), 0);
+      const isReferred = !!user.referredBy;
+      const totalDeposited = await storage.getTotalApprovedDeposits(user.id);
+      const hasQualifiedDeposit = totalDeposited >= 50;
 
       return res.json({
         referralCode: user.referralCode,
-        referralCount,
-        currentTier,
-        totalEarnings: totalEarnings.toFixed(2),
-        referrals: referrals.map(r => ({
+        totalReferrals,
+        qualifiedReferrals,
+        currentYield,
+        maxYield: 30,
+        referralBonusPaid: user.referralBonusPaid,
+        isReferred,
+        hasQualifiedDeposit,
+        welcomeBonusPaid: user.welcomeBonusPaid,
+        referrals: referralsWithInfo.map(r => ({
           id: r.id,
           fullName: r.fullName,
           createdAt: r.createdAt,
+          totalDeposited: r.totalDeposited,
+          isQualified: r.isQualified,
         })),
-        commissions,
       });
     } catch (err) {
       return res.status(500).json({ message: "Server error" });
@@ -607,14 +598,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.updateUserBalance(deposit.userId, deposit.amount);
 
+      const bonusDetails: string[] = [];
+
+      if (user.referredBy) {
+        const totalDeposited = await storage.getTotalApprovedDeposits(user.id);
+        const wasQualifiedBefore = (totalDeposited - parseFloat(deposit.amount)) >= 50;
+
+        if (totalDeposited >= 50 && !wasQualifiedBefore) {
+          const alreadyQualified = await storage.hasQualifiedReferralFor(user.referredBy, user.id);
+          if (!alreadyQualified) {
+            const updatedReferrer = await storage.incrementQualifiedReferrals(user.referredBy);
+
+            await storage.createReferralCommission({
+              referrerId: user.referredBy,
+              fromUserId: user.id,
+              investmentId: "referral-qualification",
+              amount: "0",
+            });
+
+            const referrer = await storage.getUserById(user.referredBy);
+            bonusDetails.push(`Referrer ${referrer?.email} qualified referral count increased to ${updatedReferrer?.qualifiedReferrals}, yield now ${updatedReferrer?.totalYieldPercent}%`);
+
+            await storage.createAuditLog({
+              action: "referral_qualified",
+              details: `User ${user.email} deposited $${totalDeposited.toFixed(2)} total (>=$50). Referrer ${referrer?.email} now has ${updatedReferrer?.qualifiedReferrals} qualified referrals, yield ${updatedReferrer?.totalYieldPercent}%`,
+              targetUserId: user.referredBy,
+            });
+
+            if (updatedReferrer && updatedReferrer.qualifiedReferrals >= 20 && !updatedReferrer.referralBonusPaid) {
+              await storage.updateUserBalance(user.referredBy, "30");
+              await storage.markReferralBonusPaid(user.referredBy);
+              bonusDetails.push(`Referrer ${referrer?.email} earned $30 milestone bonus for 20+ qualified referrals`);
+
+              await storage.createAuditLog({
+                action: "referral_milestone_bonus",
+                details: `Referrer ${referrer?.email} reached 20 qualified referrals, $30 bonus paid`,
+                targetUserId: user.referredBy,
+              });
+            }
+          }
+
+          if (!user.welcomeBonusPaid) {
+            await storage.updateUserBalance(user.id, "5");
+            await storage.markWelcomeBonusPaid(user.id);
+
+            const newYield = 11;
+            await storage.setUserYieldPercent(user.id, newYield);
+
+            bonusDetails.push(`User ${user.email} received $5 welcome bonus and 11% yield for depositing $50+`);
+
+            await storage.createAuditLog({
+              action: "welcome_bonus_paid",
+              details: `User ${user.email} received $5 welcome bonus. Yield set to 11% (referred user with $50+ deposit)`,
+              targetUserId: user.id,
+            });
+          }
+        }
+      }
+
       await storage.createAuditLog({
         action: "deposit_approved",
-        details: `Deposit $${deposit.amount} approved for user ${user.email}. Balance credited. User must manually start investment.`,
+        details: `Deposit $${deposit.amount} approved for user ${user.email}. Balance credited.${bonusDetails.length > 0 ? " " + bonusDetails.join(". ") : ""} User must manually start investment.`,
         targetUserId: user.id,
       });
 
       return res.json({ message: "Deposit approved, balance credited. User will start investment manually." });
     } catch (err) {
+      console.error("Approve deposit error:", err);
       return res.status(500).json({ message: "Server error" });
     }
   });
