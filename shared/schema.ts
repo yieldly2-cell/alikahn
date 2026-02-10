@@ -16,6 +16,10 @@ export const users = pgTable("users", {
   isBlocked: boolean("is_blocked").notNull().default(false),
   emailVerified: boolean("email_verified").notNull().default(false),
   deviceId: text("device_id"),
+  qualifiedReferrals: integer("qualified_referrals").notNull().default(0),
+  totalYieldPercent: integer("total_yield_percent").notNull().default(10),
+  referralBonusPaid: boolean("referral_bonus_paid").notNull().default(false),
+  welcomeBonusPaid: boolean("welcome_bonus_paid").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
