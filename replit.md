@@ -2,13 +2,19 @@
 
 ## Overview
 
-Yieldly is a USDT (TRC-20) investment platform built as a full-stack application with an Expo/React Native frontend and an Express.js backend. Users can deposit USDT, invest it for a 72-hour period to earn 10% profit, withdraw funds, and earn referral commissions through a tiered referral system. All deposits and withdrawals require manual admin approval — there is no auto-crediting of funds.
+Yieldly is a USDT (TRC-20) investment platform built as a full-stack application with an Expo/React Native frontend and an Express.js backend. Users can deposit USDT, invest it for a 72-hour period to earn profit based on their dynamic yield rate, withdraw funds, and grow their yield through a dynamic referral system. All deposits and withdrawals require manual admin approval — there is no auto-crediting of funds.
 
 **Key business rules:**
 - Currency: USDT TRC-20 only
 - Minimum deposit: $5 | Minimum withdrawal: $20
-- Profit: 10% after exactly 72 hours (server-side cron job)
-- Referral tiers: 1 referral → 11% yield, 2 referrals → 12%, 3+ referrals → 13%
+- Profit: Dynamic yield rate after exactly 72 hours (server-side cron job)
+- Dynamic referral yield system:
+  - Base yield: 10% per 72-hour investment cycle
+  - Each qualified referral (referred user deposits $50+) adds +1% to your yield rate
+  - Maximum yield: 30% (base 10% + up to 20 qualified referrals)
+  - Referred users who deposit $50+ get 11% base yield + $5 welcome bonus
+  - Milestone bonus: $30 one-time bonus at 20 qualified referrals
+  - Yield rate is stored per-user (`totalYieldPercent`) and locked at investment start time
 - Platform wallet: `TLfixnZVqzmTp2UhQwHjPiiV9eK3NemLy7`
 - Admin credentials: username `yieldly` / password `@eleven0011`
 
@@ -50,7 +56,7 @@ Preferred communication style: Simple, everyday language.
 - **ORM:** Drizzle ORM with `drizzle-zod` for schema validation
 - **Schema location:** `shared/schema.ts` — shared between server and client type definitions
 - **Tables:**
-  - `users` — id (UUID), fullName, email, password, referralCode, referredBy, balance, isBlocked, deviceId, emailVerified, createdAt
+  - `users` — id (UUID), fullName, email, password, referralCode, referredBy, balance, isBlocked, deviceId, emailVerified, qualifiedReferrals, totalYieldPercent, referralBonusPaid, welcomeBonusPaid, createdAt
   - `deposits` — id, userId, amount, txid, screenshotUrl, status (pending/approved/rejected), createdAt, reviewedAt
   - `investments` — id, userId, depositId, amount, profitRate, startedAt, maturesAt, profitPaid, status
   - `withdrawals` — id, userId, amount, usdtAddress, status, createdAt
