@@ -1,16 +1,18 @@
 import React, { useState, useCallback } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, TextInput, Pressable, ActivityIndicator, Alert, Platform, RefreshControl,
+  View, Text, StyleSheet, ScrollView, TextInput, Pressable, ActivityIndicator, Platform, RefreshControl, Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import SvgQRCode from "react-native-qrcode-svg";
 import { useAuth } from "@/lib/auth-context";
 import { getApiUrl } from "@/lib/query-client";
 import { fetch as expoFetch } from "expo/fetch";
+import { File } from "expo-file-system";
 import Colors from "@/constants/colors";
 
 const PLATFORM_WALLET = "TLfixnZVqzmTp2UhQwHjPiiV9eK3NemLy7";
@@ -19,6 +21,7 @@ interface DepositData {
   id: string;
   amount: string;
   txid: string;
+  screenshotUrl: string | null;
   status: string;
   createdAt: string;
 }
@@ -28,6 +31,8 @@ export default function DepositScreen() {
   const { token } = useAuth();
   const [amount, setAmount] = useState("");
   const [txid, setTxid] = useState("");
+  const [screenshotUri, setScreenshotUri] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [deposits, setDeposits] = useState<DepositData[]>([]);
@@ -66,6 +71,62 @@ export default function DepositScreen() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function pickScreenshot() {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setScreenshotUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      setError("Failed to pick image");
+    }
+  }
+
+  async function uploadScreenshot(): Promise<string | null> {
+    if (!screenshotUri) return null;
+    setUploading(true);
+    try {
+      const baseUrl = getApiUrl();
+      const uploadUrl = new URL("/api/upload", baseUrl);
+
+      const formData = new FormData();
+
+      if (Platform.OS === "web") {
+        const response = await fetch(screenshotUri);
+        const blob = await response.blob();
+        formData.append("screenshot", blob, "screenshot.jpg");
+      } else {
+        const file = new File(screenshotUri);
+        formData.append("screenshot", file as any);
+      }
+
+      const res = await expoFetch(uploadUrl.toString(), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const data = await res.json();
+      return data.url;
+    } catch (err) {
+      console.error("Upload error:", err);
+      throw new Error("Failed to upload screenshot");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function submitDeposit() {
     if (!amount || parseFloat(amount) < 5) {
       setError("Minimum deposit is $5");
@@ -75,10 +136,17 @@ export default function DepositScreen() {
       setError("Please enter your Transaction ID (TXID)");
       return;
     }
+    if (!screenshotUri) {
+      setError("Please upload a screenshot proof of payment");
+      return;
+    }
+
     setError("");
     setSuccess("");
     setLoading(true);
     try {
+      const screenshotUrl = await uploadScreenshot();
+
       const baseUrl = getApiUrl();
       const url = new URL("/api/deposits", baseUrl);
       const res = await expoFetch(url.toString(), {
@@ -87,7 +155,11 @@ export default function DepositScreen() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ amount: parseFloat(amount), txid: txid.trim() }),
+        body: JSON.stringify({
+          amount: parseFloat(amount),
+          txid: txid.trim(),
+          screenshotUrl,
+        }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -96,6 +168,7 @@ export default function DepositScreen() {
       setSuccess("Deposit submitted! Pending admin approval.");
       setAmount("");
       setTxid("");
+      setScreenshotUri(null);
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       fetchDeposits();
     } catch (err: any) {
@@ -193,10 +266,30 @@ export default function DepositScreen() {
             />
           </View>
 
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Screenshot Proof *</Text>
+            <Pressable onPress={pickScreenshot} style={styles.screenshotPicker}>
+              {screenshotUri ? (
+                <View style={styles.screenshotPreviewContainer}>
+                  <Image source={{ uri: screenshotUri }} style={styles.screenshotPreview} resizeMode="cover" />
+                  <Pressable onPress={() => setScreenshotUri(null)} style={styles.removeScreenshot}>
+                    <Ionicons name="close-circle" size={22} color={Colors.dark.red} />
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.screenshotPlaceholder}>
+                  <Ionicons name="camera-outline" size={28} color={Colors.dark.textMuted} />
+                  <Text style={styles.screenshotText}>Tap to upload payment proof</Text>
+                  <Text style={styles.screenshotHint}>JPG, PNG - Max 10MB</Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
+
           <Pressable
             style={({ pressed }) => [styles.submitBtn, pressed && { opacity: 0.85 }]}
             onPress={submitDeposit}
-            disabled={loading}
+            disabled={loading || uploading}
           >
             <LinearGradient
               colors={[Colors.dark.emerald, Colors.dark.emeraldDark]}
@@ -204,7 +297,14 @@ export default function DepositScreen() {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              {loading ? <ActivityIndicator color="#fff" /> : (
+              {loading || uploading ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <ActivityIndicator color="#fff" />
+                  <Text style={styles.submitBtnText}>
+                    {uploading ? "Uploading..." : "Submitting..."}
+                  </Text>
+                </View>
+              ) : (
                 <Text style={styles.submitBtnText}>Submit Deposit</Text>
               )}
             </LinearGradient>
@@ -281,6 +381,20 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.dark.inputBorder,
     padding: 14, fontSize: 15, fontFamily: "DMSans_400Regular", color: Colors.dark.inputText,
   },
+  screenshotPicker: {
+    borderRadius: 12, overflow: "hidden",
+    borderWidth: 1, borderColor: Colors.dark.inputBorder, borderStyle: "dashed" as const,
+  },
+  screenshotPlaceholder: {
+    alignItems: "center", justifyContent: "center",
+    paddingVertical: 28, backgroundColor: Colors.dark.inputBackground,
+    gap: 6,
+  },
+  screenshotText: { fontSize: 14, fontFamily: "DMSans_500Medium", color: Colors.dark.textSecondary },
+  screenshotHint: { fontSize: 11, fontFamily: "DMSans_400Regular", color: Colors.dark.textMuted },
+  screenshotPreviewContainer: { position: "relative" as const },
+  screenshotPreview: { width: "100%", height: 200, borderRadius: 12 },
+  removeScreenshot: { position: "absolute" as const, top: 8, right: 8 },
   submitBtn: { borderRadius: 12, overflow: "hidden", marginTop: 4 },
   submitBtnGradient: { padding: 14, alignItems: "center" },
   submitBtnText: { fontSize: 15, fontFamily: "DMSans_700Bold", color: "#fff" },
