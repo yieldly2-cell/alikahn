@@ -6,7 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/lib/auth-context";
 import { getApiUrl } from "@/lib/query-client";
-import { fetch } from "expo/fetch";
+import { fetchWithTimeout } from "@/lib/fetch-helper";
 import Colors from "@/constants/colors";
 
 interface InvestmentData {
@@ -211,9 +211,10 @@ export default function DashboardScreen() {
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/investments", baseUrl);
-      const res = await fetch(url.toString(), {
+      const res = await fetchWithTimeout(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
-      });
+        timeout: 15000,
+      }, 1);
       if (res.ok) {
         const data = await res.json();
         setInvestments(data);
@@ -228,9 +229,10 @@ export default function DashboardScreen() {
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/investments/available-deposits", baseUrl);
-      const res = await fetch(url.toString(), {
+      const res = await fetchWithTimeout(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
-      });
+        timeout: 15000,
+      }, 1);
       if (res.ok) {
         const data = await res.json();
         setAvailableDeposits(data);
@@ -257,14 +259,15 @@ export default function DashboardScreen() {
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/investments/start", baseUrl);
-      const res = await fetch(url.toString(), {
+      const res = await fetchWithTimeout(url.toString(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ depositId }),
-      });
+        timeout: 15000,
+      }, 1);
       if (!res.ok) {
         const data = await res.json();
         console.error("Start investment error:", data.message);

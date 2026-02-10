@@ -8,7 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/lib/auth-context";
 import { getApiUrl } from "@/lib/query-client";
-import { fetch as expoFetch } from "expo/fetch";
+import { fetchWithTimeout } from "@/lib/fetch-helper";
 import Colors from "@/constants/colors";
 
 interface WithdrawalData {
@@ -38,9 +38,10 @@ export default function WithdrawScreen() {
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/withdrawals", baseUrl);
-      const res = await expoFetch(url.toString(), {
+      const res = await fetchWithTimeout(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
-      });
+        timeout: 15000,
+      }, 1);
       if (res.ok) setWithdrawals(await res.json());
     } catch {}
   }, [token]);
@@ -73,14 +74,15 @@ export default function WithdrawScreen() {
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/withdrawals", baseUrl);
-      const res = await expoFetch(url.toString(), {
+      const res = await fetchWithTimeout(url.toString(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ amount: amt, usdtAddress: address.trim() }),
-      });
+        timeout: 15000,
+      }, 1);
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.message || "Withdrawal failed");

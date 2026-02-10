@@ -11,6 +11,7 @@ import * as ImagePicker from "expo-image-picker";
 import SvgQRCode from "react-native-qrcode-svg";
 import { useAuth } from "@/lib/auth-context";
 import { getApiUrl } from "@/lib/query-client";
+import { fetchWithTimeout } from "@/lib/fetch-helper";
 import { fetch as expoFetch } from "expo/fetch";
 import { File } from "expo-file-system";
 import Colors from "@/constants/colors";
@@ -47,13 +48,16 @@ export default function DepositScreen() {
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/deposits", baseUrl);
-      const res = await expoFetch(url.toString(), {
+      const res = await fetchWithTimeout(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
-      });
+        timeout: 15000,
+      }, 1);
       if (res.ok) {
         setDeposits(await res.json());
       }
-    } catch {}
+    } catch (err) {
+      console.error("Failed to fetch deposits:", err);
+    }
   }, [token]);
 
   React.useEffect(() => { fetchDeposits(); }, []);
@@ -149,7 +153,7 @@ export default function DepositScreen() {
 
       const baseUrl = getApiUrl();
       const url = new URL("/api/deposits", baseUrl);
-      const res = await expoFetch(url.toString(), {
+      const res = await fetchWithTimeout(url.toString(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -160,7 +164,8 @@ export default function DepositScreen() {
           txid: txid.trim(),
           screenshotUrl,
         }),
-      });
+        timeout: 15000,
+      }, 1);
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.message || "Deposit failed");

@@ -9,7 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/lib/auth-context";
 import { getApiUrl } from "@/lib/query-client";
-import { fetch as expoFetch } from "expo/fetch";
+import { fetchWithTimeout } from "@/lib/fetch-helper";
 import Colors from "@/constants/colors";
 
 type Step = "info" | "otp" | "password";
@@ -61,7 +61,7 @@ export default function RegisterScreen() {
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/auth/send-otp", baseUrl);
-      const res = await expoFetch(url.toString(), {
+      const res = await fetchWithTimeout(url.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
@@ -87,7 +87,7 @@ export default function RegisterScreen() {
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/auth/send-otp", baseUrl);
-      const res = await expoFetch(url.toString(), {
+      const res = await fetchWithTimeout(url.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
@@ -147,7 +147,7 @@ export default function RegisterScreen() {
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/auth/verify-otp", baseUrl);
-      const res = await expoFetch(url.toString(), {
+      const res = await fetchWithTimeout(url.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), code }),

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, Platform, RefreshControl, Share,
+  View, Text, StyleSheet, ScrollView, Pressable, Platform, RefreshControl, Share, ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,7 +8,7 @@ import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/lib/auth-context";
 import { getApiUrl } from "@/lib/query-client";
-import { fetch as expoFetch } from "expo/fetch";
+import { fetchWithTimeout } from "@/lib/fetch-helper";
 import Colors from "@/constants/colors";
 
 interface ReferralUser {
@@ -34,23 +34,36 @@ interface ReferralData {
 
 export default function ReferralsScreen() {
   const insets = useSafeAreaInsets();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [data, setData] = useState<ReferralData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
   const fetchReferrals = useCallback(async () => {
     if (!token) return;
+    setError(null);
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/referrals", baseUrl);
-      const res = await expoFetch(url.toString(), {
+      const res = await fetchWithTimeout(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setData(await res.json());
-    } catch {}
+        timeout: 15000,
+      }, 1);
+      if (res.ok) {
+        setData(await res.json());
+      } else {
+        setError("Failed to load referral data. Please refresh.");
+      }
+    } catch (err) {
+      console.error("Referral fetch error:", err);
+      setError("Failed to load referral data. Please refresh.");
+    } finally {
+      setLoading(false);
+    }
   }, [token]);
 
   useEffect(() => { fetchReferrals(); }, []);
@@ -78,10 +91,21 @@ export default function ReferralsScreen() {
     } catch {}
   }
 
-  const currentYield = data?.currentYield || 10;
-  const qualifiedCount = data?.qualifiedReferrals || 0;
-  const totalCount = data?.totalReferrals || 0;
-  const progressToMax = Math.min(1, qualifiedCount / 20);
+  const referralCode = data?.referralCode || user?.referralCode || "";
+  const currentYield = data?.currentYield || user?.totalYieldPercent || 10;
+  const qualifiedCount = data?.qualifiedReferrals || user?.qualifiedReferrals || 0;
+  const totalCount = data?.totalReferrals || user?.referralCount || 0;
+
+  if (loading && !data) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color={Colors.dark.emerald} />
+        <Text style={{ color: Colors.dark.textSecondary, marginTop: 12, fontFamily: "DMSans_400Regular" }}>
+          Loading referral data...
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -97,10 +121,18 @@ export default function ReferralsScreen() {
         <Text style={styles.pageTitle}>Referral Program</Text>
         <Text style={styles.pageSubtitle}>Invite friends, earn +1% yield per qualified referral</Text>
 
+        {error && (
+          <Pressable style={styles.errorCard} onPress={() => { setLoading(true); fetchReferrals(); }}>
+            <Ionicons name="alert-circle" size={18} color={Colors.dark.red} />
+            <Text style={styles.errorText}>{error}</Text>
+            <Ionicons name="refresh" size={16} color={Colors.dark.textMuted} />
+          </Pressable>
+        )}
+
         <View style={styles.codeCard}>
           <Text style={styles.codeLabel}>Your Referral Code</Text>
           <View style={styles.codeRow}>
-            <Text style={styles.codeText}>{data?.referralCode || "---"}</Text>
+            <Text style={styles.codeText}>{referralCode || "---"}</Text>
             <View style={styles.codeBtns}>
               <Pressable onPress={copyCode} style={styles.codeBtn}>
                 <Ionicons name={copied ? "checkmark" : "copy-outline"} size={20} color={copied ? Colors.dark.emerald : Colors.dark.text} />
@@ -264,6 +296,12 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.background },
   pageTitle: { fontSize: 24, fontFamily: "DMSans_700Bold", color: Colors.dark.text, marginBottom: 4 },
   pageSubtitle: { fontSize: 14, fontFamily: "DMSans_400Regular", color: Colors.dark.textSecondary, marginBottom: 20 },
+  errorCard: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    backgroundColor: Colors.dark.red + "15", borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: Colors.dark.red + "30", marginBottom: 16,
+  },
+  errorText: { fontSize: 13, fontFamily: "DMSans_500Medium", color: Colors.dark.red, flex: 1 },
   codeCard: {
     backgroundColor: Colors.dark.surface, borderRadius: 16, padding: 20,
     borderWidth: 1, borderColor: Colors.dark.emerald + "30", marginBottom: 16,

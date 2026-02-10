@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
-import { fetch } from "expo/fetch";
+import { fetchWithTimeout } from "@/lib/fetch-helper";
 
 interface UserData {
   id: string;
@@ -12,6 +12,8 @@ interface UserData {
   balance: string;
   isBlocked: boolean;
   referralCount: number;
+  qualifiedReferrals: number;
+  totalYieldPercent: number;
   createdAt: string;
 }
 
@@ -54,9 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/user/me", baseUrl);
-      const res = await fetch(url.toString(), {
+      const res = await fetchWithTimeout(url.toString(), {
         headers: { Authorization: `Bearer ${authToken}` },
-      });
+        timeout: 15000,
+      }, 1);
       if (!res.ok) {
         await AsyncStorage.removeItem("auth_token");
         setToken(null);
@@ -73,11 +76,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(email: string, password: string) {
     const baseUrl = getApiUrl();
     const url = new URL("/api/auth/login", baseUrl);
-    const res = await fetch(url.toString(), {
+    const res = await fetchWithTimeout(url.toString(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
-    });
+      timeout: 15000,
+    }, 1);
     if (!res.ok) {
       const data = await res.json();
       throw new Error(data.message || "Login failed");
@@ -91,11 +95,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function register(regData: { fullName: string; email: string; password: string; referralCode?: string }) {
     const baseUrl = getApiUrl();
     const url = new URL("/api/auth/register", baseUrl);
-    const res = await fetch(url.toString(), {
+    const res = await fetchWithTimeout(url.toString(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(regData),
-    });
+      timeout: 15000,
+    }, 1);
     if (!res.ok) {
       const data = await res.json();
       throw new Error(data.message || "Registration failed");
