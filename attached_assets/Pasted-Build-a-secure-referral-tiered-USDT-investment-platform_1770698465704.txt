@@ -1,0 +1,71 @@
+Build a secure, referral-tiered USDT investment platform named 'Yieldly' with full admin control and mobile-first design.
+🎯 Core Rules
+Currency: USDT (TRC-20) only
+Min Deposit: $5 | Min Withdrawal: $20
+Profit: 10% after exactly 72 hours (server-side cron job)
+Referral Tiers:
+1 referral → 11% total yield (10% user + 1% referrer)
+2 referrals → 12%
+3+ referrals → 13%
+Admin never takes profit — extra % goes to referrers
+Real funds stay in admin’s Trust Wallet: TLfixnZVqzmTp2UhQwHjPiiV9eK3NemLy7
+👥 User Flow
+Registration:
+Full Name, Email, Password (8+ chars)
+Optional Referral Code
+✅ reCAPTCHA v3 ("I'm not a robot")
+✉️ Email OTP verification (6-digit code sent to real email)
+🔒 Device binding: 1 device = 1 account
+Deposit:
+Shows fixed wallet: TLfixnZVqzmTp2UhQwHjPiiV9eK3NemLy7
+QR code + warning: "Only send USDT TRC-20"
+Upload TXID + screenshot
+Status: "Pending Admin Approval"
+Investment:
+After admin approves → user starts 72h timer
+Live countdown shown in app
+At 72h: 10% profit auto-added, referral commission auto-paid
+Withdrawal:
+Enter amount (≥$20) + USDT address
+Request appears in admin panel
+❌ No auto-payout — admin manually sends from Trust Wallet
+🔐 Security
+Manual approval for all deposits/withdrawals
+Fake deposits blocked (no auto-credit)
+JWT auth + rate limiting on admin login
+Input sanitization (XSS/NoSQL injection prevention)
+Logout clears session; only original email/password works
+👨‍💼 Admin Dashboard (Web – React + Tailwind)
+Login: /admin → credentials: yieldly / @eleven0011
+Dark theme: #121212, emerald green buttons, gold accents
+Full Control:
+Approve/reject deposits (with screenshot preview)
+Process/reject withdrawals
+Block/unblock users
+Adjust balances (with audit log)
+View referral stats & active timers
+Legal: Terms of Service + Privacy Policy links
+📱 Mobile App (Flutter)
+App Name: Yieldly
+Theme: Dark mode only
+Screens: Auth, Dashboard, Deposit (with QR), Withdrawal, Referrals
+Features:
+Live 72h timer with progress bar
+Screenshot upload (Cloudinary)
+Copy wallet address + share
+Legal pages in settings
+⚙️ Tech Stack
+Backend: Node.js + Express + MongoDB (Mongoose)
+Admin: React (Vite) + Tailwind CSS → hosted on Netlify
+Mobile: Flutter → Play Store
+Hosting:
+Backend: Replit Pro (always-on, cron jobs)
+Files: Cloudinary (screenshots)
+Auth: JWT + reCAPTCHA + Nodemailer (OTP)
+📦 Deliverables
+Full backend with OTP, referral logic, cron job
+Working admin dashboard (/admin) with full control
+Flutter app with dark theme, QR, upload, timer
+.env.example with all keys
+Instructions: How to use Trust Wallet as platform wallet
+Note: This is a high-risk financial app. Prioritize manual oversight, security, and user trust over automation."
