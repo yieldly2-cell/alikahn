@@ -1,14 +1,14 @@
-import { eq, desc, and, sql, lte } from "drizzle-orm";
+import { eq, desc, and, sql, lte, gt } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, deposits, investments, withdrawals, referralCommissions, auditLogs,
-  type User, type Deposit, type Investment, type Withdrawal, type ReferralCommission, type AuditLog,
+  users, deposits, investments, withdrawals, referralCommissions, auditLogs, otpCodes,
+  type User, type Deposit, type Investment, type Withdrawal, type ReferralCommission, type AuditLog, type OtpCode,
 } from "../shared/schema";
 
 function generateReferralCode(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let code = "YLD";
-  for (let i = 0; i < 5; i++) {
+  let code = "";
+  for (let i = 0; i < 8; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return code;
@@ -37,6 +37,7 @@ export async function createUser(data: {
     referralCode,
     referredBy: data.referredBy || null,
     deviceId: data.deviceId || null,
+    emailVerified: true,
   }).returning();
   return user;
 }
@@ -84,6 +85,40 @@ export async function getAllUsers(): Promise<User[]> {
   return db.select().from(users).orderBy(desc(users.createdAt));
 }
 
+// OTP functions
+export async function createOTP(email: string, code: string): Promise<OtpCode> {
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  const [otp] = await db.insert(otpCodes).values({
+    email: email.toLowerCase(),
+    code,
+    expiresAt,
+  }).returning();
+  return otp;
+}
+
+export async function getLatestOTP(email: string): Promise<OtpCode | undefined> {
+  const [otp] = await db.select().from(otpCodes)
+    .where(and(
+      eq(otpCodes.email, email.toLowerCase()),
+      eq(otpCodes.verified, false),
+      gt(otpCodes.expiresAt, new Date()),
+    ))
+    .orderBy(desc(otpCodes.createdAt))
+    .limit(1);
+  return otp;
+}
+
+export async function incrementOTPAttempts(otpId: string): Promise<void> {
+  await db.update(otpCodes).set({
+    attempts: sql`${otpCodes.attempts} + 1`,
+  }).where(eq(otpCodes.id, otpId));
+}
+
+export async function markOTPVerified(otpId: string): Promise<void> {
+  await db.update(otpCodes).set({ verified: true }).where(eq(otpCodes.id, otpId));
+}
+
+// Deposit functions
 export async function createDeposit(data: {
   userId: string;
   amount: string;
@@ -101,6 +136,11 @@ export async function createDeposit(data: {
 
 export async function getDepositsByUser(userId: string): Promise<Deposit[]> {
   return db.select().from(deposits).where(eq(deposits.userId, userId)).orderBy(desc(deposits.createdAt));
+}
+
+export async function getDepositById(depositId: string): Promise<Deposit | undefined> {
+  const [deposit] = await db.select().from(deposits).where(eq(deposits.id, depositId));
+  return deposit;
 }
 
 export async function getAllDeposits(): Promise<(Deposit & { userName?: string; userEmail?: string })[]> {
@@ -131,6 +171,21 @@ export async function updateDepositStatus(depositId: string, status: string): Pr
   return deposit;
 }
 
+export async function getApprovedDepositsWithoutInvestment(userId: string): Promise<Deposit[]> {
+  const userInvestments = await db.select({ depositId: investments.depositId }).from(investments).where(eq(investments.userId, userId));
+  const investedDepositIds = userInvestments.map(i => i.depositId);
+
+  const approvedDeposits = await db.select().from(deposits).where(
+    and(
+      eq(deposits.userId, userId),
+      eq(deposits.status, "approved"),
+    )
+  ).orderBy(desc(deposits.createdAt));
+
+  return approvedDeposits.filter(d => !investedDepositIds.includes(d.id));
+}
+
+// Investment functions
 export async function createInvestment(data: {
   userId: string;
   depositId: string;
@@ -173,6 +228,12 @@ export async function markInvestmentPaid(investmentId: string): Promise<void> {
   }).where(eq(investments.id, investmentId));
 }
 
+export async function hasInvestmentForDeposit(depositId: string): Promise<boolean> {
+  const [existing] = await db.select().from(investments).where(eq(investments.depositId, depositId));
+  return !!existing;
+}
+
+// Withdrawal functions
 export async function createWithdrawal(data: {
   userId: string;
   amount: string;
@@ -217,6 +278,7 @@ export async function updateWithdrawalStatus(withdrawalId: string, status: strin
   return withdrawal;
 }
 
+// Referral functions
 export async function createReferralCommission(data: {
   referrerId: string;
   fromUserId: string;
@@ -235,6 +297,7 @@ export async function getReferrals(userId: string): Promise<User[]> {
   return db.select().from(users).where(eq(users.referredBy, userId));
 }
 
+// Audit functions
 export async function createAuditLog(data: {
   action: string;
   details?: string;

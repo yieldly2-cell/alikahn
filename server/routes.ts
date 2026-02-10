@@ -3,12 +3,40 @@ import { createServer, type Server } from "node:http";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import cron from "node-cron";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import * as storage from "./storage";
+import { isTemporaryEmail, generateOTP, sendOTPEmail } from "./email";
 
 const JWT_SECRET = process.env.SESSION_SECRET || "yieldly-secret-key-2024";
 const ADMIN_USERNAME = "yieldly";
 const ADMIN_PASSWORD = "@eleven0011";
 const PLATFORM_WALLET = "TLfixnZVqzmTp2UhQwHjPiiV9eK3NemLy7";
+
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: uploadsDir,
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      cb(null, uniqueSuffix + path.extname(file.originalname));
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = /\.(jpg|jpeg|png|gif|webp)$/i;
+    if (allowed.test(path.extname(file.originalname))) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed"));
+    }
+  },
+});
 
 interface AuthRequest extends Request {
   userId?: string;
@@ -93,9 +121,90 @@ async function processMaturedInvestments() {
 export async function registerRoutes(app: Express): Promise<Server> {
   cron.schedule("*/5 * * * *", processMaturedInvestments);
 
+  app.use("/uploads", (req, res, next) => {
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    next();
+  }, require("express").static(uploadsDir));
+
+  // ==================== OTP ENDPOINTS ====================
+
+  app.post("/api/auth/send-otp", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const emailLower = email.trim().toLowerCase();
+
+      if (isTemporaryEmail(emailLower)) {
+        return res.status(400).json({ message: "Temporary/disposable email addresses are not allowed. Please use a real email." });
+      }
+
+      const existing = await storage.getUserByEmail(emailLower);
+      if (existing) {
+        return res.status(400).json({ message: "This email is already registered. Please sign in instead." });
+      }
+
+      const existingOTP = await storage.getLatestOTP(emailLower);
+      if (existingOTP) {
+        const timeSinceCreated = Date.now() - new Date(existingOTP.createdAt).getTime();
+        if (timeSinceCreated < 60000) {
+          return res.status(429).json({ message: "Please wait at least 60 seconds before requesting a new code." });
+        }
+      }
+
+      const code = generateOTP();
+      await storage.createOTP(emailLower, code);
+
+      const sent = await sendOTPEmail(emailLower, code);
+      if (!sent) {
+        return res.status(500).json({ message: "Failed to send verification code. Please try again." });
+      }
+
+      return res.json({ message: "Verification code sent to your email" });
+    } catch (err) {
+      console.error("Send OTP error:", err);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
+    try {
+      const { email, code } = req.body;
+      if (!email || !code) {
+        return res.status(400).json({ message: "Email and verification code are required" });
+      }
+
+      const emailLower = email.trim().toLowerCase();
+      const otp = await storage.getLatestOTP(emailLower);
+
+      if (!otp) {
+        return res.status(400).json({ message: "No valid verification code found. Please request a new one." });
+      }
+
+      if (otp.attempts >= 3) {
+        return res.status(400).json({ message: "Too many failed attempts. Please request a new code." });
+      }
+
+      if (otp.code !== code.trim()) {
+        await storage.incrementOTPAttempts(otp.id);
+        return res.status(400).json({ message: "Invalid verification code. Please try again." });
+      }
+
+      await storage.markOTPVerified(otp.id);
+      return res.json({ message: "Email verified successfully", verified: true });
+    } catch (err) {
+      console.error("Verify OTP error:", err);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ==================== AUTH ENDPOINTS ====================
+
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
-      const { fullName, email, password, referralCode, deviceId } = req.body;
+      const { fullName, email, password, referralCode, deviceId, otpCode } = req.body;
 
       if (!fullName || !email || !password) {
         return res.status(400).json({ message: "Full name, email, and password are required" });
@@ -104,15 +213,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Password must be at least 8 characters" });
       }
 
-      const existing = await storage.getUserByEmail(email);
+      const emailLower = email.trim().toLowerCase();
+
+      if (isTemporaryEmail(emailLower)) {
+        return res.status(400).json({ message: "Temporary/disposable email addresses are not allowed" });
+      }
+
+      const existing = await storage.getUserByEmail(emailLower);
       if (existing) {
         return res.status(400).json({ message: "Email already registered" });
+      }
+
+      if (otpCode) {
+        const otp = await storage.getLatestOTP(emailLower);
+        if (!otp || !otp.verified) {
+          const pendingOtp = await storage.getLatestOTP(emailLower);
+          if (pendingOtp && !pendingOtp.verified) {
+            if (pendingOtp.attempts >= 3) {
+              return res.status(400).json({ message: "Too many failed attempts. Request a new code." });
+            }
+            if (pendingOtp.code !== otpCode.trim()) {
+              await storage.incrementOTPAttempts(pendingOtp.id);
+              return res.status(400).json({ message: "Invalid verification code" });
+            }
+            await storage.markOTPVerified(pendingOtp.id);
+          } else {
+            return res.status(400).json({ message: "Please verify your email first" });
+          }
+        }
       }
 
       if (deviceId) {
         const deviceUser = await storage.getUserByDeviceId(deviceId);
         if (deviceUser) {
-          return res.status(400).json({ message: "This device is already linked to an account" });
+          await storage.createAuditLog({
+            action: "duplicate_device_blocked",
+            details: `Device ${deviceId} already linked to user ${deviceUser.email}. Registration blocked for ${emailLower}`,
+          });
+          return res.status(400).json({ message: "This device is already linked to an account. One device per account only." });
         }
       }
 
@@ -128,10 +266,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hashedPassword = await bcrypt.hash(password, 12);
       const user = await storage.createUser({
         fullName,
-        email,
+        email: emailLower,
         password: hashedPassword,
         referredBy: referredById,
         deviceId,
+      });
+
+      await storage.createAuditLog({
+        action: "user_registered",
+        details: `New user: ${emailLower}, device: ${deviceId || "unknown"}`,
+        targetUserId: user.id,
       });
 
       const token = jwt.sign({ userId: user.id, type: "user" }, JWT_SECRET, { expiresIn: "30d" });
@@ -154,16 +298,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await storage.getUserByEmail(email);
       if (!user) {
-        return res.status(401).json({ message: "Invalid credentials" });
+        return res.status(401).json({ message: "Invalid credentials. Use your registered email." });
       }
 
       if (user.isBlocked) {
-        return res.status(403).json({ message: "Your account has been blocked" });
+        return res.status(403).json({ message: "Your account has been blocked. Contact support." });
       }
 
       const valid = await bcrypt.compare(password, user.password);
       if (!valid) {
-        return res.status(401).json({ message: "Invalid credentials" });
+        return res.status(401).json({ message: "Invalid credentials. Use your registered email." });
       }
 
       const token = jwt.sign({ userId: user.id, type: "user" }, JWT_SECRET, { expiresIn: "30d" });
@@ -192,6 +336,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.json({ address: PLATFORM_WALLET });
   });
 
+  // ==================== UPLOAD ENDPOINT ====================
+
+  app.post("/api/upload", authMiddleware as any, upload.single("screenshot"), (req: AuthRequest, res: Response) => {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+    const url = `/uploads/${req.file.filename}`;
+    return res.json({ url });
+  });
+
+  // ==================== DEPOSIT ENDPOINTS ====================
+
   app.post("/api/deposits", authMiddleware as any, async (req: AuthRequest, res: Response) => {
     try {
       const { amount, txid, screenshotUrl } = req.body;
@@ -201,12 +357,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (parseFloat(amount) < 5) {
         return res.status(400).json({ message: "Minimum deposit is $5" });
       }
+      if (!screenshotUrl) {
+        return res.status(400).json({ message: "Screenshot proof is required" });
+      }
 
       const deposit = await storage.createDeposit({
         userId: req.userId!,
         amount: parseFloat(amount).toFixed(6),
         txid,
         screenshotUrl,
+      });
+
+      await storage.createAuditLog({
+        action: "deposit_submitted",
+        details: `User submitted deposit of $${parseFloat(amount).toFixed(2)}, TXID: ${txid}`,
+        targetUserId: req.userId,
       });
 
       return res.status(201).json(deposit);
@@ -224,6 +389,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== INVESTMENT ENDPOINTS ====================
+
   app.get("/api/investments", authMiddleware as any, async (req: AuthRequest, res: Response) => {
     try {
       const userInvestments = await storage.getInvestmentsByUser(req.userId!);
@@ -232,6 +399,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ message: "Server error" });
     }
   });
+
+  app.get("/api/investments/available-deposits", authMiddleware as any, async (req: AuthRequest, res: Response) => {
+    try {
+      const availableDeposits = await storage.getApprovedDepositsWithoutInvestment(req.userId!);
+      return res.json(availableDeposits);
+    } catch (err) {
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.post("/api/investments/start", authMiddleware as any, async (req: AuthRequest, res: Response) => {
+    try {
+      const { depositId } = req.body;
+      if (!depositId) {
+        return res.status(400).json({ message: "Deposit ID is required" });
+      }
+
+      const deposit = await storage.getDepositById(depositId);
+      if (!deposit) {
+        return res.status(404).json({ message: "Deposit not found" });
+      }
+      if (deposit.userId !== req.userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      if (deposit.status !== "approved") {
+        return res.status(400).json({ message: "Deposit must be approved before starting an investment" });
+      }
+
+      const alreadyInvested = await storage.hasInvestmentForDeposit(depositId);
+      if (alreadyInvested) {
+        return res.status(400).json({ message: "Investment already started for this deposit" });
+      }
+
+      const user = await storage.getUserById(req.userId!);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const referralCount = await storage.getReferralCount(user.id);
+      let profitRate = "10";
+      if (referralCount >= 3) profitRate = "13";
+      else if (referralCount >= 2) profitRate = "12";
+      else if (referralCount >= 1) profitRate = "11";
+
+      const investment = await storage.createInvestment({
+        userId: req.userId!,
+        depositId,
+        amount: deposit.amount,
+        profitRate,
+      });
+
+      await storage.createAuditLog({
+        action: "investment_started",
+        details: `User started investment of $${parseFloat(deposit.amount).toFixed(2)} at ${profitRate}% rate`,
+        targetUserId: req.userId,
+      });
+
+      return res.status(201).json(investment);
+    } catch (err) {
+      console.error("Start investment error:", err);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ==================== WITHDRAWAL ENDPOINTS ====================
 
   app.post("/api/withdrawals", authMiddleware as any, async (req: AuthRequest, res: Response) => {
     try {
@@ -273,6 +503,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== REFERRAL ENDPOINTS ====================
+
   app.get("/api/referrals", authMiddleware as any, async (req: AuthRequest, res: Response) => {
     try {
       const user = await storage.getUserById(req.userId!);
@@ -306,7 +538,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin routes
+  // ==================== ADMIN ENDPOINTS ====================
+
   app.post("/api/admin/login", (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
@@ -372,26 +605,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUserById(deposit.userId);
       if (!user) return res.status(404).json({ message: "User not found" });
 
-      const referralCount = await storage.getReferralCount(user.id);
-      let profitRate = "10";
-      if (referralCount >= 3) profitRate = "13";
-      else if (referralCount >= 2) profitRate = "12";
-      else if (referralCount >= 1) profitRate = "11";
-
-      await storage.createInvestment({
-        userId: deposit.userId,
-        depositId: deposit.id,
-        amount: deposit.amount,
-        profitRate,
-      });
+      await storage.updateUserBalance(deposit.userId, deposit.amount);
 
       await storage.createAuditLog({
         action: "deposit_approved",
-        details: `Deposit $${deposit.amount} approved for user ${user.email}`,
+        details: `Deposit $${deposit.amount} approved for user ${user.email}. Balance credited. User must manually start investment.`,
         targetUserId: user.id,
       });
 
-      return res.json({ message: "Deposit approved, investment started" });
+      return res.json({ message: "Deposit approved, balance credited. User will start investment manually." });
     } catch (err) {
       return res.status(500).json({ message: "Server error" });
     }

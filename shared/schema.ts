@@ -14,7 +14,20 @@ export const users = pgTable("users", {
   referredBy: text("referred_by"),
   balance: numeric("balance", { precision: 20, scale: 6 }).notNull().default("0"),
   isBlocked: boolean("is_blocked").notNull().default(false),
+  emailVerified: boolean("email_verified").notNull().default(false),
   deviceId: text("device_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const otpCodes = pgTable("otp_codes", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  email: text("email").notNull(),
+  code: text("code").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  verified: boolean("verified").notNull().default(false),
+  expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -111,6 +124,7 @@ export const withdrawalSchema = z.object({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type OtpCode = typeof otpCodes.$inferSelect;
 export type Deposit = typeof deposits.$inferSelect;
 export type Investment = typeof investments.$inferSelect;
 export type Withdrawal = typeof withdrawals.$inferSelect;

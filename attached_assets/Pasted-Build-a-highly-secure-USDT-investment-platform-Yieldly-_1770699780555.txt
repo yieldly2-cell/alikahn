@@ -1,0 +1,61 @@
+Build a highly secure USDT investment platform 'Yieldly' with the following strict rules:
+🔐 Account Creation & Login Security
+Real Email Only:
+User must verify email via 6-digit OTP sent from yieldly@gmail.com
+Block temporary emails (@temp-mail.org, @10minutemail.com, etc.)
+If fake email → no OTP → account not created
+One Device, One Account:
+On first signup, capture unique Device ID (using device_info_plus)
+Same device cannot create multiple accounts
+Different device + same email = allowed (but logs warning)
+Strict Login Policy:
+After logout, user must use the same email and password used during signup
+Any other email/password → error: "Invalid credentials. Use your registered email."
+📧 OTP Flow (From yieldly@gmail.com)
+User enters email → clicks "Send OTP"
+System sends 6-digit code to that email via SMTP (Gmail)
+User enters code in app → if valid → account created
+OTP expires in 10 minutes, max 3 attempts
+💳 Deposit Process (Manual Approval)
+User sees wallet: TLfixnZVqzmTp2UhQwHjPiiV9eK3NemLy7 + QR
+Must upload:
+TXID (Tronscan link)
+Screenshot proof (showing sender, receiver, amount, timestamp)
+Status: "Pending Admin Approval"
+❌ NO auto-credit — admin must review screenshot in panel
+Admin approves → balance added + referral logic triggered
+⏳ Investment Timer
+After deposit approval, user clicks "Start Investment"
+72-hour countdown begins (server-side cron job)
+Timer shown on dedicated screen with progress bar
+At 72h:
+10% profit added to user
+Referral commission (1–3%) auto-added to referrers
+👥 Referral System
+Referral code: 8-digit alphanumeric (e.g., A3B9K2M8)
+Tiers:
+1 referral → 11% total yield
+2 referrals → 12%
+3+ referrals → 13%
+Commission paid only after user’s investment completes
+👨‍💼 Admin Dashboard
+Login: yieldly / @eleven0011
+Full control:
+View/verify deposit screenshots
+Approve/reject deposits & withdrawals
+Block users, adjust balances
+See device IDs, referral stats, active timers
+Dark theme (#121212), emerald green (#00C853)
+🛡️ Anti-Fraud Measures
+No account from fake email
+No multi-account from same device
+No auto-deposits — all manual
+Real USDT stays in admin’s Trust Wallet
+All actions logged (audit trail)
+📱 Tech Stack
+Backend: Node.js + Express + MongoDB
+Email: Nodemailer (Gmail SMTP from yieldly@gmail.com)
+Mobile: Flutter (device ID, OTP, upload)
+Admin: React + Tailwind (Netlify)
+Hosting: Replit Pro (always-on, cron jobs)
+This system must be 100% secure, manual, and fraud-resistant — no automation on deposits or payouts."
