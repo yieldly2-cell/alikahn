@@ -4,7 +4,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/lib/auth-context";
@@ -12,12 +11,25 @@ import { getApiUrl } from "@/lib/query-client";
 import { fetch as expoFetch } from "expo/fetch";
 import Colors from "@/constants/colors";
 
+interface ReferralUser {
+  id: string;
+  fullName: string;
+  createdAt: string;
+  totalDeposited: number;
+  isQualified: boolean;
+}
+
 interface ReferralData {
   referralCode: string;
-  referralCount: number;
-  currentTier: string;
-  totalEarnings: string;
-  referrals: { id: string; fullName: string; createdAt: string }[];
+  totalReferrals: number;
+  qualifiedReferrals: number;
+  currentYield: number;
+  maxYield: number;
+  referralBonusPaid: boolean;
+  isReferred: boolean;
+  hasQualifiedDeposit: boolean;
+  welcomeBonusPaid: boolean;
+  referrals: ReferralUser[];
 }
 
 export default function ReferralsScreen() {
@@ -61,17 +73,15 @@ export default function ReferralsScreen() {
     if (!data) return;
     try {
       await Share.share({
-        message: `Join Yieldly and earn 10% profit every 72 hours! Use my referral code: ${data.referralCode}`,
+        message: `Join Yieldly and earn up to 30% profit every 72 hours! Use my referral code: ${data.referralCode}`,
       });
     } catch {}
   }
 
-  const tiers = [
-    { refs: 0, rate: "10%", label: "Base Rate", active: (data?.referralCount || 0) === 0 },
-    { refs: 1, rate: "11%", label: "1 Referral", active: (data?.referralCount || 0) === 1 },
-    { refs: 2, rate: "12%", label: "2 Referrals", active: (data?.referralCount || 0) === 2 },
-    { refs: 3, rate: "13%", label: "3+ Referrals", active: (data?.referralCount || 0) >= 3 },
-  ];
+  const currentYield = data?.currentYield || 10;
+  const qualifiedCount = data?.qualifiedReferrals || 0;
+  const totalCount = data?.totalReferrals || 0;
+  const progressToMax = Math.min(1, qualifiedCount / 20);
 
   return (
     <View style={styles.container}>
@@ -85,7 +95,7 @@ export default function ReferralsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.pageTitle}>Referral Program</Text>
-        <Text style={styles.pageSubtitle}>Invite friends and earn higher yields</Text>
+        <Text style={styles.pageSubtitle}>Invite friends, earn +1% yield per qualified referral</Text>
 
         <View style={styles.codeCard}>
           <Text style={styles.codeLabel}>Your Referral Code</Text>
@@ -103,56 +113,143 @@ export default function ReferralsScreen() {
           {copied && <Text style={styles.copiedText}>Copied!</Text>}
         </View>
 
+        <View style={styles.yieldCard}>
+          <View style={styles.yieldHeader}>
+            <Text style={styles.yieldLabel}>Your Current Yield</Text>
+            <Text style={styles.yieldValue}>{currentYield}%</Text>
+          </View>
+          <View style={styles.yieldProgressBg}>
+            <View style={[styles.yieldProgressFill, { width: `${Math.max(5, ((currentYield - 10) / 20) * 100)}%` as any }]} />
+          </View>
+          <View style={styles.yieldRange}>
+            <Text style={styles.yieldRangeText}>10% base</Text>
+            <Text style={styles.yieldRangeText}>30% max</Text>
+          </View>
+        </View>
+
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Ionicons name="people" size={22} color={Colors.dark.emerald} />
-            <Text style={styles.statValue}>{data?.referralCount || 0}</Text>
-            <Text style={styles.statLabel}>Referrals</Text>
+            <Text style={styles.statValue}>{totalCount}</Text>
+            <Text style={styles.statLabel}>Total</Text>
           </View>
           <View style={styles.statCard}>
-            <Ionicons name="trending-up" size={22} color={Colors.dark.gold} />
-            <Text style={styles.statValue}>{data?.currentTier || "10%"}</Text>
-            <Text style={styles.statLabel}>Your Rate</Text>
+            <Ionicons name="checkmark-circle" size={22} color={Colors.dark.gold} />
+            <Text style={styles.statValue}>{qualifiedCount}</Text>
+            <Text style={styles.statLabel}>Qualified</Text>
           </View>
           <View style={styles.statCard}>
-            <Ionicons name="cash" size={22} color={Colors.dark.emeraldLight} />
-            <Text style={styles.statValue}>${data?.totalEarnings || "0.00"}</Text>
-            <Text style={styles.statLabel}>Earned</Text>
+            <Ionicons name="trending-up" size={22} color={Colors.dark.emeraldLight} />
+            <Text style={styles.statValue}>+{qualifiedCount}%</Text>
+            <Text style={styles.statLabel}>Bonus</Text>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Commission Tiers</Text>
-        <View style={styles.tiersCard}>
-          {tiers.map((tier, i) => (
-            <View
-              key={i}
-              style={[styles.tierRow, tier.active && styles.tierActive, i < tiers.length - 1 && styles.tierBorder]}
-            >
-              <View style={styles.tierLeft}>
-                <View style={[styles.tierDot, tier.active && styles.tierDotActive]} />
-                <View>
-                  <Text style={[styles.tierLabel, tier.active && styles.tierLabelActive]}>{tier.label}</Text>
-                  <Text style={styles.tierDesc}>
-                    {tier.refs === 0 ? "Default yield" : `Invite ${tier.refs} friend${tier.refs > 1 ? "s" : ""}`}
+        {data?.referralBonusPaid && (
+          <View style={styles.milestoneCard}>
+            <Ionicons name="trophy" size={20} color={Colors.dark.gold} />
+            <Text style={styles.milestoneText}>$30 milestone bonus earned for 20+ qualified referrals!</Text>
+          </View>
+        )}
+
+        {qualifiedCount >= 20 && !data?.referralBonusPaid && (
+          <View style={[styles.milestoneCard, { borderColor: Colors.dark.emerald + "40" }]}>
+            <Ionicons name="gift" size={20} color={Colors.dark.emerald} />
+            <Text style={[styles.milestoneText, { color: Colors.dark.emerald }]}>
+              You have {qualifiedCount} qualified referrals! $30 bonus is being processed.
+            </Text>
+          </View>
+        )}
+
+        <Text style={styles.sectionTitle}>How It Works</Text>
+        <View style={styles.rulesCard}>
+          <View style={styles.ruleRow}>
+            <View style={styles.ruleDot}><Text style={styles.ruleDotText}>1</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.ruleTitle}>Share your code</Text>
+              <Text style={styles.ruleDesc}>Friends sign up with your referral code</Text>
+            </View>
+          </View>
+          <View style={styles.ruleRow}>
+            <View style={styles.ruleDot}><Text style={styles.ruleDotText}>2</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.ruleTitle}>They deposit $50+</Text>
+              <Text style={styles.ruleDesc}>Referral qualifies when they deposit $50 or more</Text>
+            </View>
+          </View>
+          <View style={styles.ruleRow}>
+            <View style={styles.ruleDot}><Text style={styles.ruleDotText}>3</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.ruleTitle}>You earn +1% yield</Text>
+              <Text style={styles.ruleDesc}>Each qualified referral adds +1% (max 30% total)</Text>
+            </View>
+          </View>
+          <View style={[styles.ruleRow, { borderBottomWidth: 0 }]}>
+            <View style={styles.ruleDot}><Text style={styles.ruleDotText}>4</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.ruleTitle}>Milestone bonus</Text>
+              <Text style={styles.ruleDesc}>Reach 20 qualified referrals and get a $30 bonus</Text>
+            </View>
+          </View>
+        </View>
+
+        {data?.isReferred && (
+          <>
+            <Text style={styles.sectionTitle}>Your Referral Benefits</Text>
+            <View style={styles.benefitCard}>
+              {data.hasQualifiedDeposit ? (
+                <>
+                  <View style={styles.benefitRow}>
+                    <Ionicons name="checkmark-circle" size={18} color={Colors.dark.emerald} />
+                    <Text style={styles.benefitText}>11% base yield (referred user bonus)</Text>
+                  </View>
+                  {data.welcomeBonusPaid && (
+                    <View style={styles.benefitRow}>
+                      <Ionicons name="checkmark-circle" size={18} color={Colors.dark.emerald} />
+                      <Text style={styles.benefitText}>$5 welcome bonus received</Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <View style={styles.benefitRow}>
+                  <Ionicons name="alert-circle" size={18} color={Colors.dark.gold} />
+                  <Text style={[styles.benefitText, { color: Colors.dark.gold }]}>
+                    Deposit $50+ to unlock 11% yield and $5 welcome bonus
                   </Text>
                 </View>
-              </View>
-              <Text style={[styles.tierRate, tier.active && styles.tierRateActive]}>{tier.rate}</Text>
+              )}
             </View>
-          ))}
-        </View>
+          </>
+        )}
 
-        {(data?.referrals?.length || 0) > 0 && (
+        {totalCount > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Your Referrals</Text>
+            <Text style={styles.sectionTitle}>Your Referrals ({qualifiedCount}/{totalCount} qualified)</Text>
             {data!.referrals.map(ref => (
               <View key={ref.id} style={styles.referralItem}>
-                <View style={styles.referralAvatar}>
-                  <Ionicons name="person" size={16} color={Colors.dark.emerald} />
+                <View style={[styles.referralAvatar, ref.isQualified && styles.referralAvatarQualified]}>
+                  <Ionicons
+                    name={ref.isQualified ? "checkmark" : "person"}
+                    size={16}
+                    color={ref.isQualified ? Colors.dark.emerald : Colors.dark.textMuted}
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.referralName}>{ref.fullName}</Text>
-                  <Text style={styles.referralDate}>Joined {new Date(ref.createdAt).toLocaleDateString()}</Text>
+                  <Text style={styles.referralDate}>
+                    Joined {new Date(ref.createdAt).toLocaleDateString()}
+                  </Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  {ref.isQualified ? (
+                    <View style={styles.qualifiedBadge}>
+                      <Text style={styles.qualifiedBadgeText}>Qualified</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.depositNeeded}>
+                      ${ref.totalDeposited.toFixed(0)}/$50
+                    </Text>
+                  )}
                 </View>
               </View>
             ))}
@@ -169,7 +266,7 @@ const styles = StyleSheet.create({
   pageSubtitle: { fontSize: 14, fontFamily: "DMSans_400Regular", color: Colors.dark.textSecondary, marginBottom: 20 },
   codeCard: {
     backgroundColor: Colors.dark.surface, borderRadius: 16, padding: 20,
-    borderWidth: 1, borderColor: Colors.dark.emerald + "30", marginBottom: 20,
+    borderWidth: 1, borderColor: Colors.dark.emerald + "30", marginBottom: 16,
   },
   codeLabel: { fontSize: 12, fontFamily: "DMSans_500Medium", color: Colors.dark.textMuted, marginBottom: 10 },
   codeRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -177,7 +274,24 @@ const styles = StyleSheet.create({
   codeBtns: { flexDirection: "row", gap: 4 },
   codeBtn: { padding: 8 },
   copiedText: { fontSize: 11, fontFamily: "DMSans_500Medium", color: Colors.dark.emerald, marginTop: 8 },
-  statsRow: { flexDirection: "row", gap: 10, marginBottom: 24 },
+  yieldCard: {
+    backgroundColor: Colors.dark.surface, borderRadius: 16, padding: 20,
+    borderWidth: 1, borderColor: Colors.dark.emerald + "30", marginBottom: 16,
+  },
+  yieldHeader: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12,
+  },
+  yieldLabel: { fontSize: 14, fontFamily: "DMSans_500Medium", color: Colors.dark.textSecondary },
+  yieldValue: { fontSize: 28, fontFamily: "DMSans_700Bold", color: Colors.dark.emerald },
+  yieldProgressBg: {
+    height: 8, backgroundColor: Colors.dark.surfaceBorder, borderRadius: 4, overflow: "hidden", marginBottom: 8,
+  },
+  yieldProgressFill: {
+    height: "100%", backgroundColor: Colors.dark.emerald, borderRadius: 4,
+  },
+  yieldRange: { flexDirection: "row", justifyContent: "space-between" },
+  yieldRangeText: { fontSize: 11, fontFamily: "DMSans_400Regular", color: Colors.dark.textMuted },
+  statsRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
   statCard: {
     flex: 1, backgroundColor: Colors.dark.surface,
     borderRadius: 14, padding: 14, alignItems: "center", gap: 6,
@@ -185,22 +299,34 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: 18, fontFamily: "DMSans_700Bold", color: Colors.dark.text },
   statLabel: { fontSize: 11, fontFamily: "DMSans_500Medium", color: Colors.dark.textSecondary },
-  sectionTitle: { fontSize: 17, fontFamily: "DMSans_700Bold", color: Colors.dark.text, marginBottom: 12 },
-  tiersCard: {
-    backgroundColor: Colors.dark.surface, borderRadius: 14,
-    borderWidth: 1, borderColor: Colors.dark.surfaceBorder, marginBottom: 24, overflow: "hidden",
+  milestoneCard: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    backgroundColor: Colors.dark.gold + "10", borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: Colors.dark.gold + "30", marginBottom: 16,
   },
-  tierRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16 },
-  tierActive: { backgroundColor: Colors.dark.emerald + "10" },
-  tierBorder: { borderBottomWidth: 1, borderBottomColor: Colors.dark.surfaceBorder },
-  tierLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  tierDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.dark.surfaceBorder },
-  tierDotActive: { backgroundColor: Colors.dark.emerald },
-  tierLabel: { fontSize: 14, fontFamily: "DMSans_600SemiBold", color: Colors.dark.textSecondary },
-  tierLabelActive: { color: Colors.dark.text },
-  tierDesc: { fontSize: 11, fontFamily: "DMSans_400Regular", color: Colors.dark.textMuted, marginTop: 2 },
-  tierRate: { fontSize: 18, fontFamily: "DMSans_700Bold", color: Colors.dark.textMuted },
-  tierRateActive: { color: Colors.dark.emerald },
+  milestoneText: { fontSize: 13, fontFamily: "DMSans_500Medium", color: Colors.dark.gold, flex: 1 },
+  sectionTitle: { fontSize: 17, fontFamily: "DMSans_700Bold", color: Colors.dark.text, marginBottom: 12, marginTop: 8 },
+  rulesCard: {
+    backgroundColor: Colors.dark.surface, borderRadius: 14,
+    borderWidth: 1, borderColor: Colors.dark.surfaceBorder, marginBottom: 16, overflow: "hidden",
+  },
+  ruleRow: {
+    flexDirection: "row", alignItems: "center", gap: 14, padding: 16,
+    borderBottomWidth: 1, borderBottomColor: Colors.dark.surfaceBorder,
+  },
+  ruleDot: {
+    width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.dark.emerald + "20",
+    alignItems: "center", justifyContent: "center",
+  },
+  ruleDotText: { fontSize: 13, fontFamily: "DMSans_700Bold", color: Colors.dark.emerald },
+  ruleTitle: { fontSize: 14, fontFamily: "DMSans_600SemiBold", color: Colors.dark.text },
+  ruleDesc: { fontSize: 12, fontFamily: "DMSans_400Regular", color: Colors.dark.textMuted, marginTop: 2 },
+  benefitCard: {
+    backgroundColor: Colors.dark.surface, borderRadius: 14, padding: 16,
+    borderWidth: 1, borderColor: Colors.dark.surfaceBorder, marginBottom: 16, gap: 10,
+  },
+  benefitRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  benefitText: { fontSize: 13, fontFamily: "DMSans_500Medium", color: Colors.dark.text, flex: 1 },
   referralItem: {
     flexDirection: "row", alignItems: "center", gap: 12,
     backgroundColor: Colors.dark.surface, borderRadius: 12, padding: 14,
@@ -208,9 +334,15 @@ const styles = StyleSheet.create({
   },
   referralAvatar: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: Colors.dark.emerald + "20",
+    backgroundColor: Colors.dark.surfaceBorder,
     alignItems: "center", justifyContent: "center",
   },
+  referralAvatarQualified: { backgroundColor: Colors.dark.emerald + "20" },
   referralName: { fontSize: 14, fontFamily: "DMSans_600SemiBold", color: Colors.dark.text },
   referralDate: { fontSize: 11, fontFamily: "DMSans_400Regular", color: Colors.dark.textMuted, marginTop: 2 },
+  qualifiedBadge: {
+    backgroundColor: Colors.dark.emerald + "20", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+  },
+  qualifiedBadgeText: { fontSize: 11, fontFamily: "DMSans_600SemiBold", color: Colors.dark.emerald },
+  depositNeeded: { fontSize: 12, fontFamily: "DMSans_500Medium", color: Colors.dark.textMuted },
 });

@@ -129,10 +129,12 @@ function AvailableDepositCard({
   deposit,
   onStart,
   starting,
+  user,
 }: {
   deposit: AvailableDeposit;
   onStart: (id: string) => void;
   starting: boolean;
+  user?: any;
 }) {
   const amount = parseFloat(deposit.amount);
   return (
@@ -172,7 +174,7 @@ function AvailableDepositCard({
       <View style={availStyles.infoRow}>
         <Ionicons name="information-circle-outline" size={14} color={Colors.dark.gold} />
         <Text style={availStyles.infoText}>
-          Starts 72h investment timer with 10% return
+          Starts 72h investment at your current {user?.totalYieldPercent || 10}% yield rate
         </Text>
       </View>
     </View>
@@ -340,8 +342,8 @@ export default function DashboardScreen() {
           </View>
           <View style={styles.statCard}>
             <Ionicons name="shield-checkmark-outline" size={20} color={Colors.dark.emeraldLight} />
-            <Text style={styles.statValue}>10%</Text>
-            <Text style={styles.statLabel}>APY / 72h</Text>
+            <Text style={styles.statValue}>{user?.totalYieldPercent || 10}%</Text>
+            <Text style={styles.statLabel}>Yield / 72h</Text>
           </View>
         </View>
 
@@ -357,6 +359,7 @@ export default function DashboardScreen() {
                 deposit={dep}
                 onStart={startInvestment}
                 starting={startingId === dep.id}
+                user={user}
               />
             ))}
           </>
