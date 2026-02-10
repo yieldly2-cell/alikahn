@@ -350,7 +350,7 @@ async function viewUser(id){
         <div style="background:#252525;padding:10px;border-radius:6px"><span style="color:#6B7280">Welcome Bonus:</span> <span style="color:${u.welcomeBonusPaid?'#00C853':'#6B7280'}">${u.welcomeBonusPaid?'Paid':'No'}</span></div>
         <div style="background:#252525;padding:10px;border-radius:6px"><span style="color:#6B7280">$30 Bonus:</span> <span style="color:${u.referralBonusPaid?'#00C853':'#6B7280'}">${u.referralBonusPaid?'Paid':'No'}</span></div>
       </div>
-      ${d.referredByUser?`<div style="background:#252525;padding:10px;border-radius:6px;margin-bottom:16px;font-size:12px"><span style="color:#6B7280">Referred by:</span> <span style="color:#fff">${escHtml(d.referredByUser.fullName)} (${escHtml(d.referredByUser.email)})</span></div>`:''}
+      ${d.referredBy?`<div style="background:#252525;padding:10px;border-radius:6px;margin-bottom:16px;font-size:12px"><span style="color:#6B7280">Referred by:</span> <span style="color:#fff">${escHtml(d.referredBy.fullName)} (${escHtml(d.referredBy.email)})</span></div>`:''}
       <div style="color:#6B7280;font-size:11px;margin-bottom:6px">Joined: ${fmtDateTime(u.createdAt)}</div>
 
       <div style="margin-top:20px">
