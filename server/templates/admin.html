@@ -178,12 +178,13 @@ async function loadUsers(){
   try{
     const usrs=await api('/api/admin/users');
     c.innerHTML=`<div class="card" style="overflow-x:auto"><table>
-      <thead><tr><th>Name</th><th>Email</th><th>Balance</th><th>Referrals</th><th>Device ID</th><th>Verified</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Name</th><th>Email</th><th>Balance</th><th>Yield</th><th>Referrals</th><th>Device ID</th><th>Verified</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
       <tbody>${usrs.map(u=>`<tr>
         <td style="font-weight:500;color:#fff">${u.fullName}</td>
         <td>${u.email}</td>
         <td style="font-weight:600;color:#10B981">$${parseFloat(u.balance).toFixed(2)}</td>
-        <td>${u.referralCount} <span style="color:#6B7280;font-size:11px">(${u.referralCode})</span></td>
+        <td style="font-weight:600;color:#F59E0B">${u.totalYieldPercent||10}%</td>
+        <td><span style="font-weight:600">${u.qualifiedReferrals||0}</span><span style="color:#6B7280">/${u.referralCount||0}</span> <span style="color:#6B7280;font-size:11px">(${u.referralCode})</span>${u.referralBonusPaid?'<span class="badge badge-approved" style="margin-left:4px">$30</span>':''}</td>
         <td><code style="font-size:10px;background:#2A2A2A;padding:2px 6px;border-radius:4px">${u.deviceId?u.deviceId.substring(0,16)+'...':'N/A'}</code></td>
         <td><span class="badge ${u.emailVerified?'badge-approved':'badge-pending'}">${u.emailVerified?'Yes':'No'}</span></td>
         <td><span class="badge ${u.isBlocked?'badge-rejected':'badge-approved'}">${u.isBlocked?'Blocked':'Active'}</span></td>
