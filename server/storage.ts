@@ -1,4 +1,4 @@
-import { eq, desc, and, sql, lte, gt } from "drizzle-orm";
+import { eq, desc, and, sql, lte, gt, gte, sum } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, deposits, investments, withdrawals, referralCommissions, auditLogs, otpCodes,
@@ -358,4 +358,127 @@ export async function createAuditLog(data: {
 
 export async function getAuditLogs(): Promise<AuditLog[]> {
   return db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(100);
+}
+
+// Admin dashboard functions
+export async function getAllReferralCommissions(): Promise<(ReferralCommission & { referrerName?: string; referrerEmail?: string; fromUserName?: string; fromUserEmail?: string })[]> {
+  const allCommissions = await db.select().from(referralCommissions).orderBy(desc(referralCommissions.createdAt));
+  
+  const result = await Promise.all(allCommissions.map(async (commission) => {
+    const referrer = await getUserById(commission.referrerId);
+    const fromUser = await getUserById(commission.fromUserId);
+    
+    return {
+      ...commission,
+      referrerName: referrer?.fullName,
+      referrerEmail: referrer?.email,
+      fromUserName: fromUser?.fullName,
+      fromUserEmail: fromUser?.email,
+    };
+  }));
+  
+  return result;
+}
+
+export async function getUserDetail(userId: string): Promise<{
+  user: User;
+  deposits: Deposit[];
+  withdrawals: Withdrawal[];
+  investments: Investment[];
+  referrals: User[];
+  referredBy: User | undefined;
+} | undefined> {
+  const user = await getUserById(userId);
+  if (!user) return undefined;
+
+  const [deposits, withdrawals, investments, referrals] = await Promise.all([
+    getDepositsByUser(userId),
+    getWithdrawalsByUser(userId),
+    getInvestmentsByUser(userId),
+    getReferrals(userId),
+  ]);
+
+  const referredBy = user.referredBy ? await getUserById(user.referredBy) : undefined;
+
+  return {
+    user,
+    deposits,
+    withdrawals,
+    investments,
+    referrals,
+    referredBy,
+  };
+}
+
+export async function getInvestmentsWithUserInfo(): Promise<(Investment & { userName?: string; userEmail?: string })[]> {
+  const result = await db
+    .select({
+      id: investments.id,
+      userId: investments.userId,
+      depositId: investments.depositId,
+      amount: investments.amount,
+      profitRate: investments.profitRate,
+      startedAt: investments.startedAt,
+      maturesAt: investments.maturesAt,
+      profitPaid: investments.profitPaid,
+      status: investments.status,
+      userName: users.fullName,
+      userEmail: users.email,
+    })
+    .from(investments)
+    .leftJoin(users, eq(investments.userId, users.id))
+    .orderBy(desc(investments.startedAt));
+  return result;
+}
+
+export async function getAuditLogsWithPagination(limit: number, offset: number): Promise<{ logs: AuditLog[]; total: number }> {
+  const logs = await db
+    .select()
+    .from(auditLogs)
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const countResult = await db
+    .select({ count: sql<number>`cast(count(*) as integer)` })
+    .from(auditLogs);
+
+  const total = countResult[0]?.count || 0;
+
+  return { logs, total };
+}
+
+export async function getTodayProfit(): Promise<number> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const result = await db
+    .select({
+      total: sum(investments.amount),
+    })
+    .from(investments)
+    .where(
+      and(
+        eq(investments.status, "completed"),
+        eq(investments.profitPaid, true),
+        gte(investments.maturesAt, today),
+        lte(investments.maturesAt, tomorrow),
+      )
+    );
+
+  const total = result[0]?.total;
+  return total ? parseFloat(total as any) : 0;
+}
+
+export async function getTotalReferralEarnings(): Promise<number> {
+  const result = await db
+    .select({
+      total: sum(referralCommissions.amount),
+    })
+    .from(referralCommissions);
+
+  const total = result[0]?.total;
+  return total ? parseFloat(total as any) : 0;
 }

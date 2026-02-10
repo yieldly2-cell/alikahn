@@ -14,6 +14,10 @@ const ADMIN_USERNAME = "yieldly";
 const ADMIN_PASSWORD = "@eleven0011";
 const PLATFORM_WALLET = "TLfixnZVqzmTp2UhQwHjPiiV9eK3NemLy7";
 
+const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
+
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -533,10 +537,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/login", (req: Request, res: Response) => {
     const { username, password } = req.body;
+    const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+
+    const attempts = loginAttempts.get(clientIp);
+    if (attempts && attempts.count >= MAX_LOGIN_ATTEMPTS) {
+      const timeSinceLast = Date.now() - attempts.lastAttempt;
+      if (timeSinceLast < LOCKOUT_DURATION) {
+        const remainingMinutes = Math.ceil((LOCKOUT_DURATION - timeSinceLast) / 60000);
+        return res.status(429).json({ message: `Too many failed attempts. Try again in ${remainingMinutes} minutes.` });
+      }
+      loginAttempts.delete(clientIp);
+    }
+
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      const token = jwt.sign({ type: "admin" }, JWT_SECRET, { expiresIn: "24h" });
+      loginAttempts.delete(clientIp);
+      const token = jwt.sign({ type: "admin" }, JWT_SECRET, { expiresIn: "30m" });
       return res.json({ token });
     }
+
+    const current = loginAttempts.get(clientIp) || { count: 0, lastAttempt: 0 };
+    loginAttempts.set(clientIp, { count: current.count + 1, lastAttempt: Date.now() });
+
     return res.status(401).json({ message: "Invalid admin credentials" });
   });
 
@@ -553,6 +574,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pendingDeposits = allDeposits.filter(d => d.status === "pending").length;
       const pendingWithdrawals = allWithdrawals.filter(w => w.status === "pending").length;
 
+      const todayProfit = await storage.getTodayProfit();
+      const totalReferralEarnings = await storage.getTotalReferralEarnings();
+
       return res.json({
         totalUsers: allUsers.length,
         totalDeposits: totalDeposits.toFixed(2),
@@ -560,6 +584,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activeInvestments,
         pendingDeposits,
         pendingWithdrawals,
+        todayProfit: todayProfit.toFixed(2),
+        totalReferralEarnings: totalReferralEarnings.toFixed(2),
       });
     } catch (err) {
       return res.status(500).json({ message: "Server error" });
@@ -671,12 +697,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/deposits/:id/reject", adminMiddleware as any, async (req: Request, res: Response) => {
     try {
+      const { reason } = req.body;
+      if (!reason || reason.trim().length < 10) {
+        return res.status(400).json({ message: "Rejection reason is required (minimum 10 characters)" });
+      }
+
       const deposit = await storage.updateDepositStatus(req.params.id, "rejected");
       if (!deposit) return res.status(404).json({ message: "Deposit not found" });
 
       await storage.createAuditLog({
         action: "deposit_rejected",
-        details: `Deposit $${deposit.amount} rejected`,
+        details: `Deposit $${deposit.amount} rejected. Reason: ${reason.trim()}`,
         targetUserId: deposit.userId,
       });
 
@@ -761,13 +792,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/users/:id/balance", adminMiddleware as any, async (req: Request, res: Response) => {
     try {
-      const { balance } = req.body;
+      const { balance, reason } = req.body;
       if (balance === undefined) return res.status(400).json({ message: "Balance required" });
+      if (!reason || reason.trim().length < 1) return res.status(400).json({ message: "Reason is required" });
 
       await storage.setUserBalance(req.params.id, parseFloat(balance).toFixed(6));
       await storage.createAuditLog({
         action: "balance_adjusted",
-        details: `Balance set to $${balance}`,
+        details: `Balance set to $${balance}. Reason: ${reason.trim()}`,
         targetUserId: req.params.id,
       });
       return res.json({ message: "Balance updated" });
@@ -778,7 +810,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/investments", adminMiddleware as any, async (_req: Request, res: Response) => {
     try {
-      const allInvestments = await storage.getAllInvestments();
+      const allInvestments = await storage.getInvestmentsWithUserInfo();
       return res.json(allInvestments);
     } catch (err) {
       return res.status(500).json({ message: "Server error" });
@@ -789,6 +821,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const logs = await storage.getAuditLogs();
       return res.json(logs);
+    } catch (err) {
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.get("/api/admin/users/:id/detail", adminMiddleware as any, async (req: Request, res: Response) => {
+    try {
+      const detail = await storage.getUserDetail(req.params.id);
+      if (!detail) return res.status(404).json({ message: "User not found" });
+      return res.json(detail);
+    } catch (err) {
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.get("/api/admin/referral-commissions", adminMiddleware as any, async (_req: Request, res: Response) => {
+    try {
+      const commissions = await storage.getAllReferralCommissions();
+      return res.json(commissions);
+    } catch (err) {
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.get("/api/admin/export/users", adminMiddleware as any, async (_req: Request, res: Response) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=users.csv');
+
+      const escapeCSV = (val: any): string => {
+        if (val === null || val === undefined) return '';
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return '"' + str.replace(/"/g, '""') + '"';
+        }
+        return str;
+      };
+
+      const headers = ['id', 'fullName', 'email', 'balance', 'referralCode', 'qualifiedReferrals', 'totalYieldPercent', 'isBlocked', 'createdAt'];
+      let csv = headers.join(',') + '\n';
+      for (const u of allUsers) {
+        csv += [
+          escapeCSV(u.id),
+          escapeCSV(u.fullName),
+          escapeCSV(u.email),
+          escapeCSV(u.balance),
+          escapeCSV(u.referralCode),
+          escapeCSV(u.qualifiedReferrals),
+          escapeCSV(u.totalYieldPercent),
+          escapeCSV(u.isBlocked),
+          escapeCSV(u.createdAt),
+        ].join(',') + '\n';
+      }
+      return res.send(csv);
+    } catch (err) {
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.get("/api/admin/export/deposits", adminMiddleware as any, async (_req: Request, res: Response) => {
+    try {
+      const allDeposits = await storage.getAllDeposits();
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=deposits.csv');
+
+      const escapeCSV = (val: any): string => {
+        if (val === null || val === undefined) return '';
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return '"' + str.replace(/"/g, '""') + '"';
+        }
+        return str;
+      };
+
+      const headers = ['id', 'userId', 'userName', 'userEmail', 'amount', 'txid', 'status', 'createdAt', 'reviewedAt'];
+      let csv = headers.join(',') + '\n';
+      for (const d of allDeposits) {
+        csv += [
+          escapeCSV(d.id),
+          escapeCSV(d.userId),
+          escapeCSV(d.userName),
+          escapeCSV(d.userEmail),
+          escapeCSV(d.amount),
+          escapeCSV(d.txid),
+          escapeCSV(d.status),
+          escapeCSV(d.createdAt),
+          escapeCSV(d.reviewedAt),
+        ].join(',') + '\n';
+      }
+      return res.send(csv);
+    } catch (err) {
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.get("/api/admin/export/withdrawals", adminMiddleware as any, async (_req: Request, res: Response) => {
+    try {
+      const allWithdrawals = await storage.getAllWithdrawals();
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=withdrawals.csv');
+
+      const escapeCSV = (val: any): string => {
+        if (val === null || val === undefined) return '';
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return '"' + str.replace(/"/g, '""') + '"';
+        }
+        return str;
+      };
+
+      const headers = ['id', 'userId', 'userName', 'userEmail', 'amount', 'usdtAddress', 'status', 'createdAt', 'reviewedAt'];
+      let csv = headers.join(',') + '\n';
+      for (const w of allWithdrawals) {
+        csv += [
+          escapeCSV(w.id),
+          escapeCSV(w.userId),
+          escapeCSV(w.userName),
+          escapeCSV(w.userEmail),
+          escapeCSV(w.amount),
+          escapeCSV(w.usdtAddress),
+          escapeCSV(w.status),
+          escapeCSV(w.createdAt),
+          escapeCSV(w.reviewedAt),
+        ].join(',') + '\n';
+      }
+      return res.send(csv);
     } catch (err) {
       return res.status(500).json({ message: "Server error" });
     }

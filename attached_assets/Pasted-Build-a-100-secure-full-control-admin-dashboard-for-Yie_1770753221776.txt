@@ -1,0 +1,79 @@
+Build a 100% secure, full-control admin dashboard for 'Yieldly' with the following features — no missing parts, no errors:
+🔐 Login & Security
+Route: /admin
+Credentials: yieldly / @eleven0011
+On login: store token in localStorage, redirect to /admin/dashboard
+Session timeout: 30 minutes
+Block brute force (5 attempts max)
+🖥️ Dashboard Overview (Real-Time Stats)
+Total Users
+Pending Deposits
+Active Investments
+Today’s Profit
+Referral Earnings
+👥 User Management Table
+ID
+Name
+Email
+Device ID
+Referrals
+Qualified
+Balance
+Status
+Actions
+Actions per user:
+🔒 Block / Unblock
+💰 Adjust Balance (input + reason)
+📊 View Investment History
+📎 Download KYC/Screenshot
+Clicking user opens detail modal with:
+Full profile
+Device info
+All deposits & withdrawals
+Referral tree
+💳 Deposit Management
+List all deposits:
+User, Amount, TXID, Date, Status (Pending / Approved / Rejected)
+Screenshot thumbnail (80x80px) → click to open full image in modal
+On approve:
+Add amount to user balance
+Check if deposit ≥ $50 → mark referral as qualified
+Auto-add $5 bonus to new user
+Trigger referrer’s yield update
+On reject: require reason (min 10 chars)
+💸 Withdrawal Management
+List: User, Amount, USDT Address, Date, Status
+Actions:
+✅ Process (admin sends from Trust Wallet manually)
+❌ Reject
+After process: mark as "Paid", log transaction ID
+📈 Investment & Timer Tracking
+Show active investments:
+User, Amount, Start Time, Remaining Time (countdown), Yield %
+Auto-72h timer: when expires → add profit + referral commission
+Manual override: extend/pause timer (for support)
+🎁 Referral & Bonus System
+Referral Code: 8-digit (e.g., A3B9K2M8) — visible in user detail
+Qualified Referrals = users who deposited ≥ $50
+Yield % = 10 + qualifiedReferrals (max 30)
+$30 bonus awarded when user hits 20+ qualified referrals
+$5 welcome bonus on first ≥$50 deposit
+🛡️ Security & Audit
+Every action logged:
+Who did it (admin)
+What (e.g., "Balance +$100 for user ID: xyz")
+When
+No auto-payouts — all deposits/withdrawals require manual approval
+Fake deposits blocked at upload (invalid TXID/screenshot)
+🎨 UI/UX Requirements
+Dark theme: #121212 background, #00C853 buttons, #FFD700 accents
+Responsive (desktop only — admin is web-only)
+Modal for screenshots, user details, balance adjust
+Search & filter (by email, status, date)
+Export to CSV (Users, Deposits, Withdrawals)
+⚙️ Tech Stack
+Backend: Node.js + Express + MongoDB
+Admin: React (Vite) + Tailwind CSS
+Hosting: Netlify (admin), Replit Pro (backend)
+Files: public/admin.html → not used; use /admin route with React SPA
+This must be a real, working, zero-error admin panel — no blank screens, no timeouts, no missing features. I must be able to control every part of my app from here.
