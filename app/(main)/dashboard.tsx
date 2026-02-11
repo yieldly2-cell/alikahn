@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Pressable, Platform, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Haptics from "expo-haptics";
 import { useAuth } from "@/lib/auth-context";
 import { getApiUrl } from "@/lib/query-client";
 import { fetchWithTimeout } from "@/lib/fetch-helper";
@@ -17,14 +16,6 @@ interface InvestmentData {
   maturesAt: string;
   profitPaid: boolean;
   status: string;
-}
-
-interface AvailableDeposit {
-  id: string;
-  amount: string;
-  txid: string;
-  status: string;
-  createdAt: string;
 }
 
 function InvestmentTimer({ investment }: { investment: InvestmentData }) {
@@ -125,84 +116,11 @@ const timerStyles = StyleSheet.create({
   timerText: { fontSize: 13, fontFamily: "DMSans_400Regular", color: Colors.dark.textSecondary },
 });
 
-function AvailableDepositCard({
-  deposit,
-  onStart,
-  starting,
-  user,
-}: {
-  deposit: AvailableDeposit;
-  onStart: (id: string) => void;
-  starting: boolean;
-  user?: any;
-}) {
-  const amount = parseFloat(deposit.amount);
-  return (
-    <View style={availStyles.card}>
-      <View style={availStyles.row}>
-        <View style={{ flex: 1 }}>
-          <Text style={availStyles.amount}>${amount.toFixed(2)}</Text>
-          <Text style={availStyles.date}>
-            Approved {new Date(deposit.createdAt).toLocaleDateString()}
-          </Text>
-        </View>
-        <Pressable
-          onPress={() => {
-            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            onStart(deposit.id);
-          }}
-          disabled={starting}
-          style={({ pressed }) => [availStyles.startBtn, pressed && { opacity: 0.85 }]}
-        >
-          <LinearGradient
-            colors={[Colors.dark.emerald, Colors.dark.emeraldDark]}
-            style={availStyles.startBtnGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            {starting ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Ionicons name="play" size={14} color="#fff" />
-                <Text style={availStyles.startBtnText}>Start</Text>
-              </View>
-            )}
-          </LinearGradient>
-        </Pressable>
-      </View>
-      <View style={availStyles.infoRow}>
-        <Ionicons name="information-circle-outline" size={14} color={Colors.dark.gold} />
-        <Text style={availStyles.infoText}>
-          Starts 72h investment at your current {user?.totalYieldPercent || 10}% yield rate
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-const availStyles = StyleSheet.create({
-  card: {
-    backgroundColor: Colors.dark.surface, borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: Colors.dark.emerald + "30", marginBottom: 12,
-  },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  amount: { fontSize: 20, fontFamily: "DMSans_700Bold", color: Colors.dark.text },
-  date: { fontSize: 12, fontFamily: "DMSans_400Regular", color: Colors.dark.textMuted, marginTop: 2 },
-  startBtn: { borderRadius: 10, overflow: "hidden" },
-  startBtnGradient: { paddingHorizontal: 16, paddingVertical: 10, alignItems: "center" },
-  startBtnText: { fontSize: 14, fontFamily: "DMSans_700Bold", color: "#fff" },
-  infoRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  infoText: { fontSize: 12, fontFamily: "DMSans_400Regular", color: Colors.dark.gold },
-});
-
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const { user, token, refreshUser } = useAuth();
   const [investments, setInvestments] = useState<InvestmentData[]>([]);
-  const [availableDeposits, setAvailableDeposits] = useState<AvailableDeposit[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [startingId, setStartingId] = useState<string | null>(null);
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
@@ -224,63 +142,16 @@ export default function DashboardScreen() {
     }
   }, [token]);
 
-  const fetchAvailableDeposits = useCallback(async () => {
-    if (!token) return;
-    try {
-      const baseUrl = getApiUrl();
-      const url = new URL("/api/investments/available-deposits", baseUrl);
-      const res = await fetchWithTimeout(url.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 15000,
-      }, 1);
-      if (res.ok) {
-        const data = await res.json();
-        setAvailableDeposits(data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch available deposits:", err);
-    }
-  }, [token]);
-
   useEffect(() => {
     fetchInvestments();
-    fetchAvailableDeposits();
     refreshUser();
   }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refreshUser(), fetchInvestments(), fetchAvailableDeposits()]);
+    await Promise.all([refreshUser(), fetchInvestments()]);
     setRefreshing(false);
-  }, [refreshUser, fetchInvestments, fetchAvailableDeposits]);
-
-  async function startInvestment(depositId: string) {
-    setStartingId(depositId);
-    try {
-      const baseUrl = getApiUrl();
-      const url = new URL("/api/investments/start", baseUrl);
-      const res = await fetchWithTimeout(url.toString(), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ depositId }),
-        timeout: 15000,
-      }, 1);
-      if (!res.ok) {
-        const data = await res.json();
-        console.error("Start investment error:", data.message);
-        return;
-      }
-      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await Promise.all([fetchInvestments(), fetchAvailableDeposits(), refreshUser()]);
-    } catch (err) {
-      console.error("Failed to start investment:", err);
-    } finally {
-      setStartingId(null);
-    }
-  }
+  }, [refreshUser, fetchInvestments]);
 
   const balance = parseFloat(user?.balance || "0");
   const activeInvestments = investments.filter(i => i.status === "active");
@@ -350,31 +221,15 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {availableDeposits.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Ready to Invest</Text>
-            <Text style={styles.sectionSubtitle}>
-              These approved deposits are ready. Tap Start to begin the 72-hour investment.
-            </Text>
-            {availableDeposits.map(dep => (
-              <AvailableDepositCard
-                key={dep.id}
-                deposit={dep}
-                onStart={startInvestment}
-                starting={startingId === dep.id}
-                user={user}
-              />
-            ))}
-          </>
-        )}
-
         <Text style={styles.sectionTitle}>Active Investments</Text>
 
         {activeInvestments.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="layers-outline" size={40} color={Colors.dark.textMuted} />
             <Text style={styles.emptyText}>No active investments</Text>
-            <Text style={styles.emptySubtext}>Make a deposit to start earning</Text>
+            <Text style={styles.emptySubtext}>
+              Make a deposit to start earning. After admin approval, your 72-hour timer begins automatically.
+            </Text>
           </View>
         ) : (
           activeInvestments.map(inv => (
@@ -430,5 +285,5 @@ const styles = StyleSheet.create({
     borderRadius: 14, borderWidth: 1, borderColor: Colors.dark.surfaceBorder,
   },
   emptyText: { fontSize: 15, fontFamily: "DMSans_600SemiBold", color: Colors.dark.textSecondary, marginTop: 12 },
-  emptySubtext: { fontSize: 13, fontFamily: "DMSans_400Regular", color: Colors.dark.textMuted, marginTop: 4 },
+  emptySubtext: { fontSize: 13, fontFamily: "DMSans_400Regular", color: Colors.dark.textMuted, marginTop: 4, textAlign: "center", paddingHorizontal: 20 },
 });
