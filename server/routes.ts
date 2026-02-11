@@ -91,17 +91,18 @@ async function processMaturedInvestments() {
       const amount = parseFloat(inv.amount);
       const profitRate = parseFloat(inv.profitRate);
       const profit = amount * (profitRate / 100);
+      const totalPayout = amount + profit;
 
-      await storage.updateUserBalance(user.id, (amount + profit).toFixed(6));
+      await storage.updateUserBalance(user.id, totalPayout.toFixed(6));
       await storage.markInvestmentPaid(inv.id);
 
       await storage.createAuditLog({
         action: "investment_matured",
-        details: `Investment $${amount.toFixed(2)} matured at ${profitRate}% yield. Profit: $${profit.toFixed(2)} paid to user`,
+        details: `Investment $${amount.toFixed(2)} matured at ${profitRate}% yield. Profit: $${profit.toFixed(2)}. Total payout: $${totalPayout.toFixed(2)} (principal + profit) credited to balance`,
         targetUserId: user.id,
       });
 
-      console.log(`Investment ${inv.id} matured: user ${user.id} received $${profit.toFixed(2)} profit at ${profitRate}% rate`);
+      console.log(`Investment ${inv.id} matured: user ${user.id} received $${totalPayout.toFixed(2)} (principal $${amount.toFixed(2)} + profit $${profit.toFixed(2)}) at ${profitRate}% rate`);
     }
   } catch (err) {
     console.error("Error processing matured investments:", err);
@@ -622,9 +623,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUserById(deposit.userId);
       if (!user) return res.status(404).json({ message: "User not found" });
 
-      await storage.updateUserBalance(deposit.userId, deposit.amount);
-
       const bonusDetails: string[] = [];
+
+      const alreadyInvested = await storage.hasInvestmentForDeposit(deposit.id);
+      if (!alreadyInvested) {
+        const profitRate = String(user.totalYieldPercent);
+        const investment = await storage.createInvestment({
+          userId: user.id,
+          depositId: deposit.id,
+          amount: deposit.amount,
+          profitRate,
+        });
+        bonusDetails.push(`72h investment auto-started at ${profitRate}% yield (ID: ${investment.id})`);
+
+        await storage.createAuditLog({
+          action: "investment_started",
+          details: `Investment of $${parseFloat(deposit.amount).toFixed(2)} auto-started at ${profitRate}% yield rate`,
+          targetUserId: user.id,
+        });
+      }
 
       if (user.referredBy) {
         const totalDeposited = await storage.getTotalApprovedDeposits(user.id);
@@ -684,11 +701,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.createAuditLog({
         action: "deposit_approved",
-        details: `Deposit $${deposit.amount} approved for user ${user.email}. Balance credited.${bonusDetails.length > 0 ? " " + bonusDetails.join(". ") : ""} User must manually start investment.`,
+        details: `Deposit $${deposit.amount} approved for user ${user.email}. Investment auto-started.${bonusDetails.length > 0 ? " " + bonusDetails.join(". ") : ""}`,
         targetUserId: user.id,
       });
 
-      return res.json({ message: "Deposit approved, balance credited. User will start investment manually." });
+      return res.json({ message: "Deposit approved. 72-hour investment started automatically." });
     } catch (err) {
       console.error("Approve deposit error:", err);
       return res.status(500).json({ message: "Server error" });
