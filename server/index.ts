@@ -180,10 +180,26 @@ function configureExpoAndLanding(app: express.Application) {
   );
   const adminTemplate = fs.readFileSync(adminTemplatePath, "utf-8");
 
+  const termsTemplatePath = path.resolve(process.cwd(), "server", "templates", "terms.html");
+  const termsTemplate = fs.readFileSync(termsTemplatePath, "utf-8");
+
+  const privacyTemplatePath = path.resolve(process.cwd(), "server", "templates", "privacy.html");
+  const privacyTemplate = fs.readFileSync(privacyTemplatePath, "utf-8");
+
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path === "/admin") {
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       return res.status(200).send(adminTemplate);
+    }
+
+    if (req.path === "/terms") {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(200).send(termsTemplate);
+    }
+
+    if (req.path === "/privacy") {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(200).send(privacyTemplate);
     }
 
     if (req.path.startsWith("/api")) {

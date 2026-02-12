@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/lib/auth-context";
+import { getApiUrl } from "@/lib/query-client";
 import Colors from "@/constants/colors";
 
 export default function SettingsScreen() {
@@ -102,12 +103,18 @@ export default function SettingsScreen() {
           <SettingsItem
             icon="document-text-outline"
             label="Terms of Service"
-            onPress={() => Linking.openURL("https://yieldly.app/terms")}
+            onPress={() => {
+              const base = getApiUrl();
+              Linking.openURL(new URL("/terms", base).toString());
+            }}
           />
           <SettingsItem
             icon="shield-outline"
             label="Privacy Policy"
-            onPress={() => Linking.openURL("https://yieldly.app/privacy")}
+            onPress={() => {
+              const base = getApiUrl();
+              Linking.openURL(new URL("/privacy", base).toString());
+            }}
           />
         </View>
 
