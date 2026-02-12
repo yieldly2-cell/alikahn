@@ -276,4 +276,19 @@ function setupErrorHandler(app: express.Application) {
       log(`express server serving on port ${port}`);
     },
   );
+
+  if (process.env.NODE_ENV === "production" && port !== 8081) {
+    const { createServer } = await import("node:http");
+    const proxyServer = createServer(app);
+    proxyServer.listen(
+      {
+        port: 8081,
+        host: "0.0.0.0",
+        reusePort: true,
+      },
+      () => {
+        log(`express server also serving on port 8081 for deployment`);
+      },
+    );
+  }
 })();
